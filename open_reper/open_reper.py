@@ -28,11 +28,11 @@ class State(rx.State):
 
         self.is_loading = True
         try:
-            champion, desc, opening = model.recommend_opening(self.pgn_content)
+            champion, desc, (eco, opening) = self._model.recommend_opening(self.pgn_content)
             self.recommendation = {
                 "champion": champion,
                 "description": desc,
-                "opening": opening,
+                "opening": f"{opening}({eco})",
             }
         except Exception as e:
             self.recommendation = {"error": str(e)}
@@ -128,16 +128,18 @@ def send_game():
             rx.text_area(
                 placeholder = "Pega tu PGN aquí...",
                 on_change = State.handle_text_input,
+                width = "400px",
                 height = "200px",
                 border = "1px solid #808080",
                 padding = "1em"
             ),
             rx.button(
                 "Obtener Recomendación",
-                on_click=State.get_recommendation,  # Vincular con la función
+                on_click=State.get_recommendation,
                 bg="#4CAF50",
                 color="white",
                 margin_top="1em",
+                cursor="pointer"
             ),
             rx.cond(
                 State.recommendation,
