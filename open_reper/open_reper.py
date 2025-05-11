@@ -1,41 +1,31 @@
 import reflex as rx
 from reflex.components.core.breakpoints import Breakpoints
-from models.chess_model import ChessStyleAnalyzer
+from open_reper.model_loader import analyzer
+import asyncio
 
 class State(rx.State):
-    pgn_content: str = ""
+    pgn_text: str = ""
     recommendation: dict = {}
-    _model: ChessStyleAnalyzer = None
     is_loading: bool = False
+    error: str = ""
 
-    @classmethod
-    def initialize_model(cls):
-        if cls._model is None:
-            cls._model = ChessStyleAnalyzer.load_model("models/chess_model")
-        return cls._model
-
-    @property
-    def model(self):
-        return self.initialize_model()
-
-    def handle_text_input(self, text: str):
-        self.pgn_content = text
-
+    @rx.event
     async def get_recommendation(self):
-        """Realiza la predicción con el modelo"""
-        if not self.pgn_content.strip():
-            return rx.window_alert("Ingresa un PGN válido")
-
         self.is_loading = True
+        self.error = ""
         try:
-            champion, desc, opening = model.recommend_opening(self.pgn_content)
+            result = await asyncio.get_event_loop().run_in_executor(
+            None, 
+            lambda: analyzer.recommend_opening(self.pgn_text)
+            )
+            champion, desc, (eco, name) = result
             self.recommendation = {
                 "champion": champion,
                 "description": desc,
-                "opening": opening,
+                "opening": f"{eco} - {name}"
             }
         except Exception as e:
-            self.recommendation = {"error": str(e)}
+            self.error = f"Error procesando PGN: {str(e)}"
         finally:
             self.is_loading = False
 
@@ -120,39 +110,55 @@ def index():
         ),
     )
 
-@rx.page(route = "/send-game")
+@rx.page(route="/send-game")
 def send_game():
     return rx.center(
         rx.vstack(
-            rx.heading("Recomendador de Aperturas", font_size="2em"),
+            rx.heading("Recomendador de Aperturas", font_size="2em", color="white"),
             rx.text_area(
-                placeholder = "Pega tu PGN aquí...",
-                on_change = State.handle_text_input,
-                height = "200px",
-                border = "1px solid #808080",
-                padding = "1em"
+                placeholder="Pega tu PGN aquí...",
+                on_change=State.set_pgn_text,
+                width="400px",
+                height="200px",
+                border="1px solid #808080",
+                padding="1em",
+                color="black",
+                bg="white"
             ),
             rx.button(
                 "Obtener Recomendación",
-                on_click=State.get_recommendation,  # Vincular con la función
+                on_click=State.get_recommendation,
                 bg="#4CAF50",
                 color="white",
                 margin_top="1em",
+                is_loading=State.is_loading,
+                _hover={"bg": "#45a049"}
             ),
+            
+            rx.cond(
+                State.error,
+                rx.text(State.error, color="red", font_weight="bold"),
+            ),
+            
             rx.cond(
                 State.recommendation,
                 rx.box(
-                    rx.text("Recomendación:", font_weight="bold"),
-                    rx.text(f"Jugador: {State.recommendation['champion']}"),
-                    rx.text(f"Apertura: {State.recommendation['opening']}"),
-                    rx.text(f"Descripción: {State.recommendation['description']}"),
-                    bg="blue",
+                    rx.text("Recomendación:", font_weight="bold", color="white"),
+                    rx.text(f"Jugador: {State.recommendation['champion']}", color="white"),
+                    rx.text(f"Apertura: {State.recommendation['opening']}", color="white"),
+                    rx.text(f"Descripción: {State.recommendation['description']}", color="white"),
+                    bg="#1E3A5F",
                     padding="2em",
                     border_radius="8px",
                     margin_top="2em",
+                    width="100%",
+                    max_width="600px"
                 ),
             ),
             spacing="4",
+            align="center",
+            width="100%",
+            max_width="800px"
         ),
         height="100vh",
         background_color="#2A5C9A",

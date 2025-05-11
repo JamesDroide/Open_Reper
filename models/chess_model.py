@@ -4,19 +4,15 @@ import numpy as np
 from collections import Counter
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
-from sklearn.utils import resample
 from sklearn.preprocessing import LabelEncoder
 from imblearn.over_sampling import SMOTE
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+from tensorflow.keras.layers import Dense, BatchNormalization
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.regularizers import l1_l2
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.utils import to_categorical
 from keras.models import load_model
 import matplotlib.pyplot as plt
-import joblib
 from joblib import dump, load
 import io
 import chardet
