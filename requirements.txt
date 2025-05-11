@@ -1,4 +1,3 @@
-reflex
 tensorflow
 scikit-learn
 chess
@@ -6,3 +5,4 @@ pandas
 imblearn
 matplotlib
 chardet
+reflex==0.7.10.post1
