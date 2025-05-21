@@ -8,6 +8,12 @@ class State(rx.State):
     recommendation: dict = {}
     is_loading: bool = False
     error: str = ""
+    
+    style_descriptions = {
+        'Posicional': 'Aperturas que priorizan el control posicional y estructural.',
+        'Combinativo': 'Aperturas dinámicas con combinaciones tácticas agresivas.',
+        'Universal': 'Aperturas versátiles que combinan estrategia y táctica.'
+    }
 
     @rx.event
     async def get_recommendation(self):
@@ -15,15 +21,20 @@ class State(rx.State):
         self.error = ""
         try:
             result = await asyncio.get_event_loop().run_in_executor(
-            None, 
-            lambda: analyzer.recommend_opening(self.pgn_text)
+                None, 
+                lambda: analyzer.recommend_opening(self.pgn_text)
             )
-            champion, desc, (eco, name) = result
-            self.recommendation = {
-                "champion": champion,
-                "description": desc,
-                "opening": f"{eco} - {name}"
-            }
+            
+            if result['status'] == 'success':
+                style = result['style']
+                opening = result['opening']
+                self.recommendation = {
+                    "champion": style,
+                    "description": self.style_descriptions.get(style, ""),
+                    "opening": f"{opening['eco']} - {opening['name']}"
+                }
+            else:
+                self.error = result['message']
         except Exception as e:
             self.error = f"Error procesando PGN: {str(e)}"
         finally:
@@ -134,17 +145,15 @@ def send_game():
                 is_loading=State.is_loading,
                 _hover={"bg": "#45a049"}
             ),
-            
             rx.cond(
                 State.error,
                 rx.text(State.error, color="red", font_weight="bold"),
             ),
-            
             rx.cond(
                 State.recommendation,
                 rx.box(
                     rx.text("Recomendación:", font_weight="bold", color="white"),
-                    rx.text(f"Jugador: {State.recommendation['champion']}", color="white"),
+                    rx.text(f"Estilo: {State.recommendation['champion']}", color="white"),
                     rx.text(f"Apertura: {State.recommendation['opening']}", color="white"),
                     rx.text(f"Descripción: {State.recommendation['description']}", color="white"),
                     bg="#1E3A5F",
