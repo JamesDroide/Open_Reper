@@ -179,10 +179,10 @@ class State(rx.State):
         moves = {
             'E00': ["d4", "Cf6", "c4", "e6", "g3"],
             'A10': ["c4", "e5", "Cf3", "Cf6", "g3"],
-            'D02': ["d4", "d5", "Cf3", "Cf6", "Ab5+"],
-            'C39': ["e4", "e5", "Cf3", "exf4", "Ac4"],
+            'D02': ["d4", "d5", "Cf3", "Cf6", "Af4"],
+            'C39': ["e4", "e5", "f4", "exf4"],
             'C44': ["e4", "e5", "Cf3", "Cc6", "d4"],
-            'C21': ["e4", "e5", "Cf3", "d5", "exd5"],
+            'C21': ["e4", "e5", "d4", "exd4", "c3"],
             'C50': ["e4", "e5", "Cf3", "Cc6", "Ac4"],
             'C60': ["e4", "e5", "Cf3", "Cc6", "Ab5"],
             'D00': ["d4", "d5", "c4", "e6", "Cc3"]
@@ -367,15 +367,8 @@ def send_game():
 @rx.page(route="/opening-recommended")
 def recommended_opening():
     return rx.center(
-        rx.box(
-            rx.vstack(
+        rx.vstack(
                 rx.hstack(
-                    rx.image(
-                        src="logo_open_reper.png",
-                        width="auto",
-                        height="150px",
-                        margin_bottom=4,
-                    ),
                     rx.heading(
                         "La mejor apertura para ti es:",
                         font_size="2em",
@@ -487,15 +480,8 @@ def recommended_opening():
                 align_items="center",
                 width="100%"
             ),
-            bg="#2A5C9A",
-            padding="3em",
-            border_radius="12px",
-            width="100%",
-            max_width="1200px",
-            box_shadow="0px 4px 20px rgba(0, 0, 0, 0.25)"
-        ),
-        height="100vh",
-        background_color="#1A2E4F",
+        height="auto",
+        background_color="#2A5C9A",
         padding="2em"
     )
 

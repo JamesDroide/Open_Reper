@@ -8,5 +8,5 @@ config = rx.Config(
         "tablet": "768px",
         "desktop": "1024px",
     },
-    backend_port = 8000
+    backend_port = 8001
 )
