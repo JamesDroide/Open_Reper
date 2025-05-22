@@ -12,11 +12,12 @@ from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
 from tensorflow.keras import Model, Input
 from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, InputLayer, Multiply
+from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, InputLayer, Add
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.optimizers.schedules import ExponentialDecay
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import random
@@ -78,16 +79,16 @@ class ChessStyleAnalyzer:
 
     def _build_neural_network(self):
         model = Sequential([
-            Dense(256, activation='relu', input_shape=(390,), kernel_regularizer=l2(0.001)),
-            BatchNormalization(),
-            Dense(128, activation='relu', kernel_regularizer=l2(0.001)),
-            #BatchNormalization(),
-            #Dense(64, activation='relu', kernel_regularizer=l2(0.001)),
-            Dense(self.num_classes, activation='softmax')  # Usar self.num_classes
+            Dense(256, activation='relu', input_shape=(420,), kernel_regularizer=l2(0.0003)),
+            Dropout(0.3),
+            Dense(128, activation='relu', kernel_regularizer=l2(0.0002)),
+            Dropout(0.2),
+            Dense(64, activation='relu'),
+            Dense(self.num_classes, activation='softmax')
         ])
 
         model.compile(
-            optimizer=Adam(learning_rate=0.001),
+            optimizer=Adam(learning_rate=0.0001),
             loss='categorical_crossentropy',
             metrics=['accuracy']
         )
@@ -138,7 +139,7 @@ class ChessStyleAnalyzer:
         self.X = self.scaler.fit_transform(features)
 
         # Balancear datos
-        smote = SMOTE(k_neighbors=3)
+        smote = SMOTE(k_neighbors=5)
         self.X, self.y = smote.fit_resample(self.X, self.y)
 
         print(f"\nDatos procesados: {len(self.X)} partidas")
@@ -151,7 +152,7 @@ class ChessStyleAnalyzer:
     def _extract_game_features(self, game):
       """Extrae características avanzadas de una partida de ajedrez"""
       MOVES_TO_ANALYZE = 30
-      FEATURES_PER_MOVE = 13
+      FEATURES_PER_MOVE = 14
       TOTAL_FEATURES = MOVES_TO_ANALYZE * FEATURES_PER_MOVE
 
       board = game.board()
@@ -175,7 +176,8 @@ class ChessStyleAnalyzer:
                   self._space_advantage(board),
                   self._piece_mobility(board),
                   self._attack_defense_ratio(board),
-                  self._passed_pawns_count(board)
+                  self._passed_pawns_count(board),
+                  self._bishop_pair_advantage(board)
               ]
               features.extend(move_features)
               previous_material = self._calculate_total_material(board)
@@ -399,6 +401,15 @@ class ChessStyleAnalyzer:
                 squares_controlled += 1
         return squares_controlled / 64
 
+    def _bishop_pair_advantage(self, board):
+        """Ventaja de pareja de alfiles"""
+        white_bishops = len(board.pieces(chess.BISHOP, chess.WHITE))
+        black_bishops = len(board.pieces(chess.BISHOP, chess.BLACK))
+
+        white_pair = 1 if white_bishops >= 2 else 0
+        black_pair = 1 if black_bishops >= 2 else 0
+        return white_pair - black_pair
+
     def train_model(self):
         # Preparar datos con one-hot encoding
         y_onehot = to_categorical(self.y, num_classes=self.num_classes)
@@ -415,14 +426,14 @@ class ChessStyleAnalyzer:
             monitor='val_loss',
             patience=5,
             restore_best_weights=True,
-            min_delta=0.001
+            min_delta=0.0001
         )
 
         # Entrenamiento
         history = self.model.fit(
             X_train, y_train,
-            epochs=30,
-            batch_size=128,
+            epochs=150,
+            batch_size=32,
             validation_data=(X_test, y_test),
             callbacks=[early_stop],
             verbose=1
@@ -443,7 +454,7 @@ class ChessStyleAnalyzer:
                     "status": "error",
                     "message": "No se ha enviado un PGN válido"
                 }
-            
+
             # --- Validación 2: Verificar formato PGN válido ---
             try:
                 game = chess.pgn.read_game(io.StringIO(pgn_text))
@@ -454,7 +465,7 @@ class ChessStyleAnalyzer:
                     "status": "error",
                     "message": "No se ha enviado un PGN válido"
                 }
-            
+
             # --- Validación 3: Mínimo de movimientos ---
             move_count = sum(1 for _ in game.mainline_moves())
             if move_count < 30:
@@ -462,7 +473,7 @@ class ChessStyleAnalyzer:
                     "status": "error",
                     "message": "El PGN enviado debe contener un mínimo de 30 movimientos"
                 }
-            
+
             # --- Procesamiento normal si pasa validaciones ---
             features = self._extract_game_features(game)
             if features is None:
@@ -470,12 +481,12 @@ class ChessStyleAnalyzer:
                     "status": "error",
                     "message": "No se pudo extraer características del PGN"
                 }
-            
+
             features_scaled = self.scaler.transform([features])
             pred = self.model.predict(features_scaled, verbose=0)
             style_code = np.argmax(pred)
             style = self.label_encoder.inverse_transform([style_code])[0]
-            
+
             # Obtener recomendaciones
             eco, name = random.choice(self.opening_mapping[style])
             return {
@@ -486,7 +497,7 @@ class ChessStyleAnalyzer:
                     "name": name
                 }
             }
-            
+
         except Exception as e:
             return {
                 "status": "error",
@@ -502,39 +513,39 @@ class ChessStyleAnalyzer:
             'opening_mapping': self.opening_mapping,
             'style_spanish_mapping': self.style_spanish_mapping  # Agregado mapeo español
         }
-        
+
         # Guardar modelo en múltiples formatos
         self.model.save(f"{filename}.keras")  # Formato moderno
         self.model.save(f"{filename}.h5")     # Compatibilidad legacy
-        
+
         # Guardar metadatos
         with open(f"{filename}_data.joblib", 'wb') as f:
             joblib.dump(model_data, f)
-        
+
         print(f"Modelo guardado exitosamente: {filename}.keras + metadatos")
 
     @classmethod
     def load_model(cls, filename):
         """Carga el modelo y metadatos con verificación de integridad"""
         analyzer = cls()
-        
+
         # Cargar metadatos
         with open(f"{filename}_data.joblib", 'rb') as f:
             model_data = joblib.load(f)
-            
+
         # Asignar metadatos
         analyzer.scaler = model_data['scaler']
         analyzer.label_encoder = model_data['label_encoder']
         analyzer.style_mapping = model_data['style_mapping']
         analyzer.opening_mapping = model_data['opening_mapping']
         analyzer.style_spanish_mapping = model_data.get('style_spanish_mapping', {})  # Backward compatibility
-        
+
         # Cargar modelo priorizando formato moderno
         try:
             analyzer.model = load_model(f"{filename}.keras")
         except:
             analyzer.model = load_model(f"{filename}.h5")
-        
+
         print(f"Modelo cargado exitosamente desde {filename}")
         return analyzer
 
