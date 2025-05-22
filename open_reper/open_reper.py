@@ -504,3 +504,5 @@ def recommended_opening():
 
 app = rx.App()
 app.add_page(index)
+app.add_page(send_game)
+app.add_page(recommended_opening)
