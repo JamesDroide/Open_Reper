@@ -1,21 +1,24 @@
 import chess
 import chess.pgn
+import io
+import chardet
 import numpy as np
+import joblib
 from collections import Counter
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.utils.class_weight import compute_class_weight
+from imblearn.pipeline import Pipeline
 from imblearn.over_sampling import SMOTE
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, BatchNormalization
+from imblearn.under_sampling import RandomUnderSampler
+from tensorflow.keras import Model, Input
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, InputLayer, Multiply
+from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.utils import to_categorical
-from keras.models import load_model
+from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
-from joblib import dump, load
-import io
-import chardet
 import random
 
 class ChessStyleAnalyzer:
@@ -23,98 +26,63 @@ class ChessStyleAnalyzer:
 
         # Mapeos de estilos
         self.style_mapping = {
-            'Steinitz, Wilhelm': 'positional_classic',
-            'Capablanca, José': 'positional_classic',
-            'Karpov, Anatoly': 'positional_classic',
-            'Kramnik, Vladimir': 'positional_classic',
-            'Alekhine, Alexander': 'aggressive_dynamical',
-            'Fischer, Robert James': 'aggressive_dynamical',
-            'Kasparov, Garry': 'aggressive_dynamical',
-            'Tal, Mikhail': 'aggressive_dynamical',
-            'Petrosian, Tigran': 'defensive_prophylactic',
-            'Lasker, Emanuel': 'defensive_prophylactic',
-            'Spassky, Boris': 'universal_practical',
-            'Anand, Viswanathan': 'universal_practical',
-            'Carlsen, Magnus': 'universal_practical',
-            'Botvinnik, Mikhail': 'scientific_technical',
-            'Euwe, Max': 'scientific_technical'
+            'Steinitz, Wilhelm': 'positional',
+            'Capablanca, José': 'positional',
+            'Karpov, Anatoly': 'positional',
+            'Kramnik, Vladimir': 'positional',
+            'Alekhine, Alexander': 'combinative',
+            'Fischer, Robert James': 'combinative',
+            'Kasparov, Garry': 'combinative',
+            'Tal, Mikhail': 'combinative',
+            'Petrosian, Tigran': 'positional',
+            'Lasker, Emanuel': 'universal',
+            'Spassky, Boris': 'universal',
+            'Anand, Viswanathan': 'universal',
+            'Carlsen, Magnus': 'universal',
+            'Botvinnik, Mikhail': 'positional',
+            'Euwe, Max': 'positional'
         }
 
         # Calcular número de clases únicas
-        self.unique_styles = list(set(self.style_mapping.values()))  # Obtener estilos únicos
-        self.num_classes = len(self.unique_styles)  # Debería ser 5
+        self.unique_styles = list(set(self.style_mapping.values()))
+        self.num_classes = len(self.unique_styles)
 
         self.scaler = StandardScaler()
         self.label_encoder = LabelEncoder()
         self.label_encoder.fit(self.unique_styles)
         self.model = self._build_neural_network()
 
-        self.champion_mapping = {
-            'positional_classic': [
-                ('Karpov, Anatoly', 'Maestro del juego posicional'),
-                ('Capablanca, José', 'Genio del juego simple y claro'),
-                ('Kramnik, Vladimir', 'Especialista en transposiciones')
+        self.opening_mapping = {
+            'positional': [
+                ('E00', 'Apertura Catalana'),
+                ('A10', 'Apertura Inglesa'),
+                ('D02', 'Sistema Londres')
             ],
-            'aggressive_dynamical': [
-                ('Kasparov, Garry', 'Ataques dinámicos y preparación de aperturas'),
-                ('Fischer, Robert James', 'Juego agudo y preciso'),
-                ('Alekhine, Alexander', 'Ataques imaginativos'),
-                ('Tal, Mikhail', 'Maestro de los sacrificios')
+            'combinative': [
+                ('C39', 'Gambito de Rey'),
+                ('C44', 'Apertura Escocesa'),
+                ('C21', 'Gambito Danés')
             ],
-            'universal_practical': [
-                ('Carlsen, Magnus', 'Adaptabilidad moderna'),
-                ('Spassky, Boris', 'Estilo completo y versátil'),
-                ('Anand, Viswanathan', 'Universalidad práctica')
-            ],
-            'scientific_technical': [
-                ('Botvinnik, Mikhail', 'Padre del ajedrez científico'),
-                ('Euwe, Max', 'Precisión técnica'),
-                ('Petrosian, Tigran', 'Estrategia profiláctica')
-            ],
-            'defensive_prophylactic': [
-                ('Petrosian, Tigran', 'Maestro de la defensa'),
-                ('Lasker, Emanuel', 'Defensa práctica y psicológica')
+            'universal': [
+                ('C50', 'Apertura Italiana'),
+                ('C60', 'Apertura Española'),
+                ('D00', 'Gambito de Dama')
             ]
         }
 
-        self.opening_mapping = {
-            'positional_classic': [
-                ('E00', 'Apertura Catalana'),
-                ('D37', 'Gambito de Dama Declinado'),
-                ('A04', 'Apertura Reti'),
-                ('D05', 'Sistema Colle')
-            ],
-            'aggressive_dynamical': [
-                ('C30', 'Gambito de Rey'),
-                ('A45', 'Apertura Trompowsky'),
-                ('E60', 'India de Rey')
-            ],
-            'universal_practical': [
-                ('A00', 'Apertura Inglesa'),
-                ('D02', 'Sistema Londres'),
-            ],
-            'scientific_technical': [
-                ('E12', 'India de Rey'),
-                ('C65', 'Apertura Española'),
-                ('D10', 'Gambito de Dama Aceptado')
-            ],
-            'defensive_prophylactic': [
-                ('A46', 'Apertura de Torre'),
-                ('D02', 'Sistema Londres')
-            ]
+        self.style_spanish_mapping = {
+            'positional' : 'Posicional',
+            'combinative' : 'Combinativo',
+            'universal' : 'Universal'
         }
 
     def _build_neural_network(self):
         model = Sequential([
-            Dense(256, activation='relu', input_shape=(420,)),
-            # No usar ambos regularizadores al mismo tiempo
-            # Probar primero una red neuronal sin regularizadores con 10 o 15 epocas
-            # Probablemente mejor BatchNormalization
+            Dense(256, activation='relu', input_shape=(390,), kernel_regularizer=l2(0.001)),
             BatchNormalization(),
-            Dense(128, activation='relu'),
-            BatchNormalization(),
-            Dense(64, activation='relu'), # Capaz considerar Dropout(0.2)
-            #Dropout(0.2),
+            Dense(128, activation='relu', kernel_regularizer=l2(0.001)),
+            #BatchNormalization(),
+            #Dense(64, activation='relu', kernel_regularizer=l2(0.001)),
             Dense(self.num_classes, activation='softmax')  # Usar self.num_classes
         ])
 
@@ -169,8 +137,6 @@ class ChessStyleAnalyzer:
         self.y = self.label_encoder.fit_transform(labels)
         self.X = self.scaler.fit_transform(features)
 
-        # Podria aplicarse submuestreo y ya no seria necesario aplicar SMOTE
-
         # Balancear datos
         smote = SMOTE(k_neighbors=3)
         self.X, self.y = smote.fit_resample(self.X, self.y)
@@ -185,7 +151,7 @@ class ChessStyleAnalyzer:
     def _extract_game_features(self, game):
       """Extrae características avanzadas de una partida de ajedrez"""
       MOVES_TO_ANALYZE = 30
-      FEATURES_PER_MOVE = 14
+      FEATURES_PER_MOVE = 13
       TOTAL_FEATURES = MOVES_TO_ANALYZE * FEATURES_PER_MOVE
 
       board = game.board()
@@ -209,8 +175,7 @@ class ChessStyleAnalyzer:
                   self._space_advantage(board),
                   self._piece_mobility(board),
                   self._attack_defense_ratio(board),
-                  self._passed_pawns_count(board),
-                  self._endgame_indicator(board)
+                  self._passed_pawns_count(board)
               ]
               features.extend(move_features)
               previous_material = self._calculate_total_material(board)
@@ -235,7 +200,7 @@ class ChessStyleAnalyzer:
         }
         white = sum(len(board.pieces(pt, chess.WHITE)) * val for pt, val in piece_values.items())
         black = sum(len(board.pieces(pt, chess.BLACK)) * val for pt, val in piece_values.items())
-        return (white - black) / 10  # Normalizado
+        return (white - black) / 10
 
     def _king_safety_score(self, board):
         """Evaluación detallada de la seguridad del rey"""
@@ -434,16 +399,6 @@ class ChessStyleAnalyzer:
                 squares_controlled += 1
         return squares_controlled / 64
 
-    def _endgame_indicator(self, board):
-        """Indicador de fase de juego (0=apertura, 1=final)"""
-        queens = len(board.pieces(chess.QUEEN, chess.WHITE)) + len(board.pieces(chess.QUEEN, chess.BLACK))
-        minors = len(board.pieces(chess.BISHOP, chess.WHITE)) + len(board.pieces(chess.KNIGHT, chess.WHITE)) + \
-                len(board.pieces(chess.BISHOP, chess.BLACK)) + len(board.pieces(chess.KNIGHT, chess.BLACK))
-
-        if queens == 0 or (queens <= 1 and minors <= 2):
-            return 1  # Final
-        return 0  # Apertura/medio juego
-
     def train_model(self):
         # Preparar datos con one-hot encoding
         y_onehot = to_categorical(self.y, num_classes=self.num_classes)
@@ -458,15 +413,16 @@ class ChessStyleAnalyzer:
         # Configurar early stopping
         early_stop = EarlyStopping(
             monitor='val_loss',
-            patience=10,
-            restore_best_weights=True
+            patience=5,
+            restore_best_weights=True,
+            min_delta=0.001
         )
 
         # Entrenamiento
         history = self.model.fit(
             X_train, y_train,
             epochs=30,
-            batch_size=64,
+            batch_size=128,
             validation_data=(X_test, y_test),
             callbacks=[early_stop],
             verbose=1
@@ -479,61 +435,107 @@ class ChessStyleAnalyzer:
         self._plot_training_history(history)
 
     def recommend_opening(self, pgn_text):
-        """Realiza una recomendación de apertura"""
+        """Realiza una recomendación de apertura con validaciones mejoradas"""
         try:
-            game = chess.pgn.read_game(io.StringIO(pgn_text))
+            # --- Validación 1: Input vacío o texto no válido ---
+            if not pgn_text or not isinstance(pgn_text, str) or pgn_text.isspace():
+                return {
+                    "status": "error",
+                    "message": "No se ha enviado un PGN válido"
+                }
+            
+            # --- Validación 2: Verificar formato PGN válido ---
+            try:
+                game = chess.pgn.read_game(io.StringIO(pgn_text))
+                if not game or not game.mainline_moves():
+                    raise ValueError("Formato PGN inválido")
+            except:
+                return {
+                    "status": "error",
+                    "message": "No se ha enviado un PGN válido"
+                }
+            
+            # --- Validación 3: Mínimo de movimientos ---
+            move_count = sum(1 for _ in game.mainline_moves())
+            if move_count < 30:
+                return {
+                    "status": "error",
+                    "message": "El PGN enviado debe contener un mínimo de 30 movimientos"
+                }
+            
+            # --- Procesamiento normal si pasa validaciones ---
             features = self._extract_game_features(game)
-
             if features is None:
-                return "Error", "No se pudo extraer características", "N/A"
-
-            # Preprocesamiento y predicción
+                return {
+                    "status": "error",
+                    "message": "No se pudo extraer características del PGN"
+                }
+            
             features_scaled = self.scaler.transform([features])
             pred = self.model.predict(features_scaled, verbose=0)
             style_code = np.argmax(pred)
             style = self.label_encoder.inverse_transform([style_code])[0]
-
+            
             # Obtener recomendaciones
-            champion, desc = random.choice(self.champion_mapping[style])
             eco, name = random.choice(self.opening_mapping[style])
-            return champion, desc, (eco, name)
-
+            return {
+                "status": "success",
+                "style": self.style_spanish_mapping[style],
+                "opening": {
+                    "eco": eco,
+                    "name": name
+                }
+            }
+            
         except Exception as e:
-            return "Error", str(e), "N/A"
+            return {
+                "status": "error",
+                "message": f"Error inesperado: {str(e)}"
+            }
 
     def save_model(self, filename):
-        """Guarda el modelo en formato .h5 y .keras"""
+        """Guarda el modelo y metadatos de forma robusta"""
         model_data = {
             'scaler': self.scaler,
             'label_encoder': self.label_encoder,
             'style_mapping': self.style_mapping,
             'opening_mapping': self.opening_mapping,
-            'champion_mapping': self.champion_mapping
+            'style_spanish_mapping': self.style_spanish_mapping  # Agregado mapeo español
         }
-        # Guardar en ambos formatos
-        self.model.save(filename + '.h5')  # Formato HDF5
-        self.model.save(filename + '.keras')  # Formato Keras
-        dump(model_data, filename + '_data.joblib')
-        print(f"Modelo guardado en {filename}.h5, {filename}.keras y {filename}_data.joblib")
+        
+        # Guardar modelo en múltiples formatos
+        self.model.save(f"{filename}.keras")  # Formato moderno
+        self.model.save(f"{filename}.h5")     # Compatibilidad legacy
+        
+        # Guardar metadatos
+        with open(f"{filename}_data.joblib", 'wb') as f:
+            joblib.dump(model_data, f)
+        
+        print(f"Modelo guardado exitosamente: {filename}.keras + metadatos")
 
     @classmethod
     def load_model(cls, filename):
-        """Carga el modelo desde cualquier formato"""
+        """Carga el modelo y metadatos con verificación de integridad"""
         analyzer = cls()
-        model_data = load(filename + '_data.joblib')
-
+        
+        # Cargar metadatos
+        with open(f"{filename}_data.joblib", 'rb') as f:
+            model_data = joblib.load(f)
+            
+        # Asignar metadatos
         analyzer.scaler = model_data['scaler']
         analyzer.label_encoder = model_data['label_encoder']
         analyzer.style_mapping = model_data['style_mapping']
         analyzer.opening_mapping = model_data['opening_mapping']
-        analyzer.champion_mapping = model_data['champion_mapping']
-
+        analyzer.style_spanish_mapping = model_data.get('style_spanish_mapping', {})  # Backward compatibility
+        
+        # Cargar modelo priorizando formato moderno
         try:
-            analyzer.model = load_model(filename + '.h5')
+            analyzer.model = load_model(f"{filename}.keras")
         except:
-            analyzer.model = load_model(filename + '.keras')
-
-        print(f"Modelo cargado desde {filename}")
+            analyzer.model = load_model(f"{filename}.h5")
+        
+        print(f"Modelo cargado exitosamente desde {filename}")
         return analyzer
 
     def _plot_training_history(self, history):
