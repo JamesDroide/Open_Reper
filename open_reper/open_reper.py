@@ -2,12 +2,56 @@ import reflex as rx
 from reflex.components.core.breakpoints import Breakpoints
 from open_reper.model_loader import analyzer
 import asyncio
+import chess
+import chess.svg
+import urllib.parse
+from typing import Dict, List, Tuple, TypedDict
+
+class RecommendedOpening(TypedDict):
+    eco: str
+    name: str
+    style: str
+    description: str
+    plans: List[str]
 
 class State(rx.State):
     pgn_text: str = ""
     recommendation: dict = {}
+    recommended_opening: RecommendedOpening = {
+        "eco": "",
+        "name": "",
+        "style": "",
+        "description": "",
+        "plans": []
+    }
     is_loading: bool = False
     error: str = ""
+    current_move: int = 0
+    board_svg: str = ""
+    game_moves: List[str] = []
+    rating: int = 0
+    variant_selected: str = ""
+    description: str = ""
+    plans: List[str] = []
+
+    # Mapeo de aperturas
+    opening_mapping: Dict[str, List[Tuple[str, str]]] = {
+        'posicional': [
+            ('E00', 'Apertura Catalana'),
+            ('A10', 'Apertura Inglesa'),
+            ('D02', 'Sistema Londres')
+        ],
+        'combinativo': [
+            ('C39', 'Gambito de Rey'),
+            ('C44', 'Apertura Escocesa'),
+            ('C21', 'Gambito Danés')
+        ],
+        'universal': [
+            ('C50', 'Apertura Italiana'),
+            ('C60', 'Apertura Española'),
+            ('D00', 'Gambito de Dama')
+        ]
+    }
     
     style_descriptions = {
         'Posicional': 'Aperturas que priorizan el control posicional y estructural.',
@@ -28,17 +72,152 @@ class State(rx.State):
             if result['status'] == 'success':
                 style = result['style']
                 opening = result['opening']
+                eco_code = opening['eco']
                 self.recommendation = {
                     "champion": style,
                     "description": self.style_descriptions.get(style, ""),
-                    "opening": f"{opening['eco']} - {opening['name']}"
+                    "opening": f"{eco_code} - {opening['name']}"
                 }
+                # Actualizar recommended_opening y movimientos
+                self.set_recommended_opening(eco_code, style)
+                self.game_moves = self._get_opening_moves(eco_code)
+                self.current_move = 0
+                if self.game_moves:
+                    self.board_svg = self._render_board(self.game_moves[:self.current_move+1])
             else:
                 self.error = result['message']
         except Exception as e:
             self.error = f"Error procesando PGN: {str(e)}"
         finally:
             self.is_loading = False
+
+    def set_recommended_opening(self, eco_code: str, style: str):
+        self.recommended_opening = {
+            "eco": eco_code,
+            "name": self._get_opening_name(eco_code),
+            "style": style,
+            "description": self._get_opening_description(eco_code),
+            "plans": self._get_plans(eco_code)
+        }
+
+    def _get_opening_name(self, eco_code: str) -> str:
+        """Obtiene el nombre de la apertura por código ECO"""
+        for style in self.opening_mapping.values():
+            for code, name in style:
+                if code == eco_code:
+                    return name
+        return "Desconocida"
+
+    def _get_opening_description(self, eco_code: str) -> str:
+        """Descripciones técnicas de las aperturas"""
+        descriptions = {
+            'E00': "La Apertura Catalana combina desarrollo armónico con presión en el flanco de dama. Ideal para jugadores estratégicos que disfrutan de posiciones sólidas con potencial de ataque en el medio juego.",
+            'A10': "La Apertura Inglesa es una estructura flexible que controla el centro con piezas menores. Permite transposiciones a múltiples sistemas y es popular entre jugadores posicionales.",
+            'D02': "El Sistema Londres es una apertura universal que crea una estructura de peones sólida. Prioriza el desarrollo rápido y el control del centro con piezas en lugar de peones.",
+            'C39': "El Gambito de Rey sacrifica un peón para obtener ventaja en desarrollo. Recomendado para jugadores tácticos que disfrutan de posiciones abiertas y dinámicas.",
+            'C44': "La Apertura Escocesa busca el control central inmediato con 1.e4 e5 2.Cf3 Cc6 3.d4. Favorece a jugadores que prefieren posiciones abiertas con juego activo.",
+            'C21': "El Gambito Danés ofrece dos peones por un rápido desarrollo. Ideal para jugadores agresivos que buscan ataques directos desde la apertura.",
+            'C50': "La Apertura Italiana desarrolla piezas rápidamente hacia el centro. Combina principios clásicos con moderna teoría de desarrollo.",
+            'C60': "La Apertura Española es una de las más estudiadas. Crea tensión central con 3.Ab5, llevando a estructuras ricas en estrategia.",
+            'D00': "El Gambito de Dama combina desarrollo con presión en el centro. La variante 3.c4 crea dinámicas posiciones con posibilidades para ambos bandos."
+        }
+        return descriptions.get(eco_code, "Descripción no disponible")
+
+    def _get_plans(self, eco_code: str) -> List[str]:
+        """Planes estratégicos por apertura"""
+        plans = {
+            'E00': [
+                "Desarrollar alfiles a g5 y f4",
+                "Preparar e4 para controlar el centro",
+                "Crear peones colgantes en d4 y e4"
+            ],
+            'A10': [
+                "Controlar el centro con c4 y d3",
+                "Desarrollar caballos a f3 y c3",
+                "Preparar fianchetto de alfil en g2"
+            ],
+            'D02': [
+                "Desarrollar alfiles a f4 y g5",
+                "Crear peón en d4 con c3",
+                "Mantener estructura de peones sólida"
+            ],
+            'C39': [
+                "Aprovechar el desarrollo rápido",
+                "Atacar el enroque enemigo con Dh5",
+                "Mantener presión en columna f"
+            ],
+            'C44': [
+                "Mantener tensión en el centro",
+                "Desarrollar alfiles a c4 y b5",
+                "Preparar enroque corto"
+            ],
+            'C21': [
+                "Sacar máximo provecho de los peones entregados",
+                "Desarrollar piezas con ganancia de tiempo",
+                "Lanzar ataque rápido en el flanco rey"
+            ],
+            'C50': [
+                "Desarrollar alfiles a c4 y b5",
+                "Preparar enroque corto",
+                "Crear tensión en e5"
+            ],
+            'C60': [
+                "Mantener tensión con Ab5",
+                "Preparar d4 para abrir el centro",
+                "Desarrollar caballo a c3"
+            ],
+            'D00': [
+                "Controlar el centro con peones",
+                "Desarrollar alfiles a g5 y f4",
+                "Preparar e4 para romper el centro"
+            ]
+        }
+        return plans.get(eco_code, [])
+
+    def _get_opening_moves(self, eco_code: str) -> List[str]:
+        """Secuencia de movimientos por apertura"""
+        moves = {
+            'E00': ["d4", "Cf6", "c4", "e6", "g3"],
+            'A10': ["c4", "e5", "Cf3", "Cf6", "g3"],
+            'D02': ["d4", "d5", "Cf3", "Cf6", "Ab5+"],
+            'C39': ["e4", "e5", "Cf3", "exf4", "Ac4"],
+            'C44': ["e4", "e5", "Cf3", "Cc6", "d4"],
+            'C21': ["e4", "e5", "Cf3", "d5", "exd5"],
+            'C50': ["e4", "e5", "Cf3", "Cc6", "Ac4"],
+            'C60': ["e4", "e5", "Cf3", "Cc6", "Ab5"],
+            'D00': ["d4", "d5", "c4", "e6", "Cc3"]
+        }
+        return moves.get(eco_code, [])
+
+    def _render_board(self, moves: List[str]) -> str:
+        """Genera SVG del tablero como Data URI"""
+        board = chess.Board()
+        try:
+            for move in moves:
+                board.push_san(move)
+            svg_content = chess.svg.board(board=board, size=400)
+            encoded_svg = urllib.parse.quote(svg_content)
+            return f"data:image/svg+xml;utf8,{encoded_svg}"
+        except Exception:
+            return ""
+
+
+    def next_move(self):
+        if self.current_move < len(self.game_moves)-1:
+            self.current_move += 1
+            self.board_svg = self._render_board(self.game_moves[:self.current_move+1])
+
+    def prev_move(self):
+        if self.current_move > 0:
+            self.current_move -= 1
+            self.board_svg = self._render_board(self.game_moves[:self.current_move+1])
+
+    def reset_game(self):
+        self.current_move = 0
+        self.board_svg = self._render_board([self.game_moves[0]])
+
+    def rate_recommendation(self, stars: int):
+        self.rating = stars
 
 def index():
     return rx.box(
@@ -156,6 +335,17 @@ def send_game():
                     rx.text(f"Estilo: {State.recommendation['champion']}", color="white"),
                     rx.text(f"Apertura: {State.recommendation['opening']}", color="white"),
                     rx.text(f"Descripción: {State.recommendation['description']}", color="white"),
+                    rx.link(
+                        rx.button(
+                            "Ver detalles de la apertura",
+                            bg="#1E3A5F",
+                            color="white",
+                            border_radius="8px",
+                            padding_x=4,
+                            margin_top=4
+                        ),
+                        href="/opening-recommended"
+                    ),
                     bg="#1E3A5F",
                     padding="2em",
                     border_radius="8px",
@@ -175,25 +365,141 @@ def send_game():
     )
 
 @rx.page(route="/opening-recommended")
-def opening_recommended():
+def recommended_opening():
     return rx.center(
-        rx.vstack(
-            rx.heading("¡Apertura Recomendada!", font_size="2em"),
-            rx.text(f"Apertura: {State.recommendation['opening']}"),
-            rx.text(f"Jugador: {State.recommendation['champion']}"),
-            rx.text(f"Descripción: {State.recommendation['description']}"),
-            rx.link(
-                rx.button("Volver a intentar"),
-                href="/send-game",
-                margin_top="2em"
+        rx.box(
+            rx.vstack(
+                rx.hstack(
+                    rx.image(
+                        src="logo_open_reper.png",
+                        width="150px",
+                        margin_bottom=4,
+                    ),
+                    rx.heading(
+                        "Recomendación de Apertura",
+                        font_size="2em",
+                        color="white"
+                    )
+                ),
+                rx.heading(
+                    State.recommended_opening['name'],
+                    font_size="3em",
+                    color="white",
+                    margin_y="1em"
+                ),
+                rx.box(
+                    rx.image(
+                        src=State.board_svg,
+                        alt="Tablero de ajedrez",
+                        width="100%",
+                        max_width="600px"
+                    ),
+                    rx.hstack(
+                        rx.button(
+                            "⏮",
+                            on_click=State.reset_game,
+                            bg="#4CAF50",
+                            color="white",
+                            border_radius="50%",
+                            padding="0.5em",
+                            margin="0.5em"
+                        ),
+                        rx.button(
+                            "⏪",
+                            on_click=State.prev_move,
+                            bg="#4CAF50",
+                            color="white",
+                            border_radius="50%",
+                            padding="0.5em",
+                            margin="0.5em"
+                        ),
+                        rx.text(
+                            f"{State.current_move+1}/{State.game_moves.length}",
+                            color="white",
+                            font_size="1.2em"
+                        ),
+                        rx.button(
+                            "⏩",
+                            on_click=State.next_move,
+                            bg="#4CAF50",
+                            color="white",
+                            border_radius="50%",
+                            padding="0.5em",
+                            margin="0.5em"
+                        ),
+                        spacing="1",
+                        align_items="center"
+                    ),
+                    align_items="center"
+                ),
+                rx.vstack(
+                    rx.heading("Movimientos", font_size="1.5em", color="white"),
+                    rx.foreach(
+                        State.game_moves,
+                        lambda move, index: rx.button(
+                            f"{index+1}. {move}",
+                            bg="#1E3A5F",
+                            color="white",
+                            border_radius="8px",
+                            padding="0.5em 1em",
+                            margin="0.2em",
+                            on_click=lambda: State.set_current_move(index)
+                        )
+                    ),
+                    spacing="1"
+                ),
+                rx.box(
+                    rx.heading("Descripción", font_size="1.5em", color="white"),
+                    rx.text(
+                        State.recommended_opening['description'],
+                        color="white",
+                        margin_y="1em"
+                    ),
+                    rx.heading("Planes de Juego", font_size="1.5em", color="white"),
+                    rx.unordered_list(
+                        rx.foreach(
+                            State.recommended_opening["plans"],
+                            lambda plan: rx.list_item(plan, color="white")
+                        )
+                    ),
+                    margin_top="2em"
+                ),
+                rx.hstack(
+                    rx.button(
+                        "Nueva Consulta",
+                        bg="#F24100",
+                        color="white",
+                        padding="1em 2em",
+                        on_click=lambda: rx.redirect("/send-game")
+                    ),
+                    rx.text("Califica esta recomendación:", color="white"),
+                    rx.foreach(
+                        [1,2,3,4,5],
+                        lambda star: rx.icon(
+                            tag="star",
+                            on_click=lambda s=star: State.rate_recommendation(s),
+                            color=rx.cond(
+                                star <= State.rating,
+                                "gold",
+                                "gray"
+                            ),
+                            cursor="pointer"
+                        )
+                    ),
+                    spacing="2"
+                ),
+                spacing="2",
+                align_items="center"
             ),
-            bg="white",
+            bg="#2A5C9A",
             padding="2em",
             border_radius="8px",
+            width="100%",
+            max_width="1200px"
         ),
         height="100vh",
         background_color="#2A5C9A",
-        padding="2em",
+        padding="2em"
     )
 
 app = rx.App()
