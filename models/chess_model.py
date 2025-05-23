@@ -6,18 +6,13 @@ import numpy as np
 import joblib
 from collections import Counter
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.utils.class_weight import compute_class_weight
-from imblearn.pipeline import Pipeline
-from imblearn.over_sampling import SMOTE
-from imblearn.under_sampling import RandomUnderSampler
-from tensorflow.keras import Model, Input
+from imblearn.over_sampling import ADASYN
 from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, InputLayer, Add
+from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.optimizers.schedules import ExponentialDecay
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import random
@@ -79,10 +74,12 @@ class ChessStyleAnalyzer:
 
     def _build_neural_network(self):
         model = Sequential([
-            Dense(256, activation='relu', input_shape=(420,), kernel_regularizer=l2(0.0003)),
-            Dropout(0.3),
-            Dense(128, activation='relu', kernel_regularizer=l2(0.0002)),
-            Dropout(0.2),
+            Dense(512, activation='relu', input_shape=(840,), kernel_regularizer=l2(0.001)),
+            Dropout(0.6),
+            Dense(256, activation='relu', kernel_regularizer=l2(0.0005)),
+            Dropout(0.5),
+            Dense(128, activation='relu', kernel_regularizer=l2(0.0003)),
+            Dropout(0.4),
             Dense(64, activation='relu'),
             Dense(self.num_classes, activation='softmax')
         ])
@@ -139,8 +136,8 @@ class ChessStyleAnalyzer:
         self.X = self.scaler.fit_transform(features)
 
         # Balancear datos
-        smote = SMOTE(k_neighbors=5)
-        self.X, self.y = smote.fit_resample(self.X, self.y)
+        adasyn = ADASYN(n_neighbors=4)
+        self.X, self.y = adasyn.fit_resample(self.X, self.y)
 
         print(f"\nDatos procesados: {len(self.X)} partidas")
         print("Distribución de estilos:", dict(zip(
@@ -151,7 +148,7 @@ class ChessStyleAnalyzer:
 
     def _extract_game_features(self, game):
       """Extrae características avanzadas de una partida de ajedrez"""
-      MOVES_TO_ANALYZE = 30
+      MOVES_TO_ANALYZE = 60
       FEATURES_PER_MOVE = 14
       TOTAL_FEATURES = MOVES_TO_ANALYZE * FEATURES_PER_MOVE
 
@@ -424,7 +421,7 @@ class ChessStyleAnalyzer:
         # Configurar early stopping
         early_stop = EarlyStopping(
             monitor='val_loss',
-            patience=5,
+            patience=10,
             restore_best_weights=True,
             min_delta=0.0001
         )
@@ -468,7 +465,7 @@ class ChessStyleAnalyzer:
 
             # --- Validación 3: Mínimo de movimientos ---
             move_count = sum(1 for _ in game.mainline_moves())
-            if move_count < 30:
+            if move_count < 60:
                 return {
                     "status": "error",
                     "message": "El PGN enviado debe contener un mínimo de 30 movimientos"
