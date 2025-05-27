@@ -73,13 +73,27 @@ class ChessStyleAnalyzer:
         }
 
     def _build_neural_network(self):
+        """
+            - Quitar Dropouts y solo en la ultima capa
+            - Aumentar el numero de neuronas a 1600-2000 aprox
+            - Estandarizar los valores
+            - El segundo y tercer regularizar es probable que este al reves
+            - Bajar todos los regularizadores al mismo hiperparametro
+        """
         model = Sequential([
-            Dense(512, activation='relu', input_shape=(840,), kernel_regularizer=l2(0.001)),
-            Dropout(0.6),
-            Dense(256, activation='relu', kernel_regularizer=l2(0.0005)),
+            #Dense(2048, activation='relu', input_shape=(840,), kernel_regularizer=l2(0.001)),
+            Dense(1024, activation='relu', input_shape=(840,), kernel_regularizer=l2(0.001)),
+            Dropout(0.2),
+            #Dropout(0.6),
+            #Dense(256, activation='relu', kernel_regularizer=l2(0.0005)),
+            Dense(256, activation='relu', kernel_regularizer=l2(0.001)),
             Dropout(0.5),
-            Dense(128, activation='relu', kernel_regularizer=l2(0.0003)),
-            Dropout(0.4),
+            #Dropout(0.6),
+            #Dense(128, activation='relu', kernel_regularizer=l2(0.001)),
+            #Dropout(0.3),  # ¡Nuevo dropout reducido!
+            Dense(128, activation='relu', kernel_regularizer=l2(0.001)),
+            Dropout(0.7),
+            #Dropout(0.5),
             Dense(64, activation='relu'),
             Dense(self.num_classes, activation='softmax')
         ])
@@ -430,7 +444,7 @@ class ChessStyleAnalyzer:
         history = self.model.fit(
             X_train, y_train,
             epochs=150,
-            batch_size=32,
+            batch_size=128,
             validation_data=(X_test, y_test),
             callbacks=[early_stop],
             verbose=1
