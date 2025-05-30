@@ -34,6 +34,10 @@ class State(rx.State):
     description: str = ""
     plans: List[str] = []
 
+    white_player: str = "Blancas"
+    black_player: str = "Negras"
+    game_metadata: dict = {}
+
     # Mapeo de aperturas
     opening_mapping: Dict[str, List[Tuple[str, str]]] = {
         'posicional': [
@@ -177,28 +181,53 @@ class State(rx.State):
     def _get_opening_moves(self, eco_code: str) -> List[str]:
         """Secuencia de movimientos por apertura"""
         moves = {
-            'E00': ["d4", "Cf6", "c4", "e6", "g3"],
-            'A10': ["c4", "e5", "Cf3", "Cf6", "g3"],
-            'D02': ["d4", "d5", "Cf3", "Cf6", "Af4"],
+            'E00': ["d4", "nf6", "c4", "e6", "g3"],
+            'A10': ["c4", "e5", "Nf3", "Nf6", "g3"],
+            'D02': ["d4", "d5", "Nf3", "Nf6", "Bf4"],
             'C39': ["e4", "e5", "f4", "exf4"],
-            'C44': ["e4", "e5", "Cf3", "Cc6", "d4"],
+            'C44': ["e4", "e5", "Nf3", "Nc6", "d4"],
             'C21': ["e4", "e5", "d4", "exd4", "c3"],
-            'C50': ["e4", "e5", "Cf3", "Cc6", "Ac4"],
-            'C60': ["e4", "e5", "Cf3", "Cc6", "Ab5"],
-            'D00': ["d4", "d5", "c4", "e6", "Cc3"]
+            'C50': ["e4", "e5", "Nf3", "Nc6", "Bc4"],
+            'C60': ["e4", "e5", "Nf3", "Nc6", "Bb5"],
+            'D00': ["d4", "d5", "c4", "e6", "Nc3"]
         }
         return moves.get(eco_code, [])
+    
+    def _get_model_games(self, eco_code: str) -> List[str]:
+        """Obtiene una lista de movimientos de una partida modelo para la apertura dada"""
+        model_games = {
+            'E00': ["d4", "Nf6", "c4", "e6", "g3", "Be7", "Bg2", "O-O"],
+            'A10': ["c4", "e5", "Nf3", "Nf6", "g3", "d5", "Bg2"],
+            'D02': ["d4", "d5", "Nf3", "Nf6", "Bf4", "e6", "e3"],
+            'C39': ["e4", "e5", "f4", "exf4", "Nf3"],
+            'C44': ["e4", "e5", "Nf3", "Nc6", "d4"],
+            'C21': ["e4", "e5", "d4", "exd4", "c3"],
+            'C50': ["e4", "e5", "Nf3", "Nc6", "Bc4"],
+            'C60': ["e4", "e5", "Nf3", "Nc6", "Bb5"],
+            'D00': ["d4", "d5", "c4"]
+        }
+        return model_games.get(eco_code, [])
 
     def _render_board(self, moves: List[str]) -> str:
-        """Genera SVG del tablero como Data URI"""
+        """Genera SVG del tablero como Data URI con mejor calidad"""
         board = chess.Board()
         try:
             for move in moves:
                 board.push_san(move)
-            svg_content = chess.svg.board(board=board, size=400)
+            
+            # Configuración mejorada del SVG
+            svg_content = chess.svg.board(
+                board=board,
+                size=400,
+                coordinates=True,
+                flipped=False,  # Mostrar desde perspectiva de blancas
+                lastmove=board.peek() if board.move_stack else None,  # Resaltar último movimiento
+                check=board.king(board.turn) if board.is_check() else None  # Resaltar jaque
+            )
             encoded_svg = urllib.parse.quote(svg_content)
             return f"data:image/svg+xml;utf8,{encoded_svg}"
-        except Exception:
+        except Exception as e:
+            print(f"Error rendering board: {e}")
             return ""
 
 
@@ -218,6 +247,10 @@ class State(rx.State):
 
     def rate_recommendation(self, stars: int):
         self.rating = stars
+
+    @rx.var
+    def move_pairs(self) -> List[int]:
+        return list(range((len(self.game_moves) + 1) // 2))
 
 def index():
     return rx.box(
@@ -368,118 +401,173 @@ def send_game():
 def recommended_opening():
     return rx.center(
         rx.vstack(
+            rx.heading("Apertura Recomendada", font_size="2em", color="white"),
+            rx.heading(
+                State.recommended_opening['name'],
+                font_size="3em",
+                color="white",
+                margin_bottom="1em"
+            ),
+            
+            # Sección del tablero y controles
+            rx.vstack(
+                rx.image(
+                    src=State.board_svg,
+                    width=["300px", "400px"],
+                    height=["300px", "400px"],
+                    alt="Tablero de Ajedrez",
+                    margin_bottom="1em",
+                ),
                 rx.hstack(
-                    rx.heading(
-                        "La mejor apertura para ti es:",
-                        font_size="2em",
-                        color="white"
-                    )
-                ),
-                
-                # Título de la apertura
-                rx.heading(
-                    State.recommended_opening['name'],
-                    font_size="3em",
-                    color="white",
-                    margin_y="1em"
-                ),
-                
-                rx.cond(
-                    State.game_moves.length() > 0,
-                    rx.table.root(
-                        rx.table.body(
-                            rx.table.row(
-                                rx.table.cell("1.", padding="0 10px"),
-                                rx.table.cell(State.game_moves[0], padding="0 10px"),
-                                rx.table.cell(rx.cond(State.game_moves.length() > 1, State.game_moves[1], ""), padding="0 10px"),
-                            ),
-                            rx.table.row(
-                                rx.table.cell("2.", padding="0 10px"),
-                                rx.table.cell(rx.cond(State.game_moves.length() > 2, State.game_moves[2], ""), padding="0 10px"),
-                                rx.table.cell(rx.cond(State.game_moves.length() > 3, State.game_moves[3], ""), padding="0 10px"),
-                            ),
-                            rx.table.row(
-                                rx.table.cell("3.", padding="0 10px"),
-                                rx.table.cell(rx.cond(State.game_moves.length() > 4, State.game_moves[4], ""), padding="0 10px"),
-                                rx.table.cell(""),
-                            ),
-                        ),
-                        bg="#1E3A5F",
-                        padding="1em",
-                        border_radius="8px",
-                        margin_bottom="2em"
-                    ),
-                    rx.text("Cargando movimientos...", color="white")
-                ),
-                
-                # Descripción y planes
-                rx.box(
-                    rx.text(
-                        State.recommended_opening['description'],
-                        color="white",
-                        font_size="1.1em",
-                        line_height="1.6",
-                        margin_bottom="2em"
-                    ),
-                    rx.heading("Planes Estratégicos:", font_size="1.5em", color="white", margin_bottom="1em"),
-                    rx.unordered_list(
-                        rx.foreach(
-                            State.recommended_opening["plans"],
-                            lambda plan: rx.list_item(
-                                plan,
-                                color="white",
-                                margin_bottom="0.5em",
-                                font_size="1.1em"
-                            )
-                        ),
-                        padding_left="1.5em"
-                    ),
-                    width="100%",
-                    max_width="800px"
-                ),
-                
-                # Botones y valoración
-                rx.vstack(
                     rx.button(
-                        "VOLVER A ANALIZAR",
+                        "← Anterior",
+                        on_click=State.prev_move,
+                        bg="#1E3A5F",
+                        color="white",
+                        disabled=State.current_move <= 0,
+                    ),
+                    rx.text(
+                        f"Movimiento {State.current_move + 1} de {State.game_moves.length()}",
+                        color="white",
+                        padding="0 1em"
+                    ),
+                    rx.button(
+                        "Siguiente →",
+                        on_click=State.next_move,
+                        bg="#1E3A5F",
+                        color="white",
+                        disabled=State.current_move >= State.game_moves.length() - 1,
+                    ),
+                    rx.button(
+                        "Reiniciar",
+                        on_click=State.reset_game,
                         bg="#F24100",
                         color="white",
-                        padding="1em 2em",
-                        on_click=lambda: rx.redirect("/send-game"),
-                        margin_bottom="2em"
+                        margin_left="1em"
                     ),
-                    
-                    rx.text(
-                        "¿Qué te pareció la recomendación?",
-                        color="white",
-                        font_size="1.2em",
-                        margin_bottom="1em"
+                    spacing="3",
+                    margin_bottom="1em",
+                    align="center"
+                ),
+                align_items="center",
+            ),
+            
+            # Visualización de la secuencia de movimientos
+            rx.box(
+                rx.heading("Secuencia de Movimientos", font_size="1.5em", color="white", margin_bottom="0.5em"),
+                rx.table.root(
+                    rx.table.header(
+                        rx.table.row(
+                            rx.table.column_header_cell("#", width="50px"),
+                            rx.table.column_header_cell("Blancas", width="150px"),
+                            rx.table.column_header_cell("Negras", width="150px"),
+                        )
                     ),
-                    
-                    rx.hstack(
+                    rx.table.body(
                         rx.foreach(
-                            [1,2,3,4,5],
-                            lambda star: rx.icon(
-                                tag="star",
-                                on_click=lambda s=star: State.rate_recommendation(s),
-                                color=rx.cond(
-                                    star <= State.rating,
-                                    "gold",
-                                    "gray"
+                            State.move_pairs,
+                            lambda i: rx.table.row(
+                                rx.table.cell(f"{i+1}.", color="white"),
+                                rx.table.cell(
+                                    rx.cond(
+                                        i*2 < State.game_moves.length(),
+                                        State.game_moves[i*2],
+                                        ""
+                                    ),
+                                    color="white"
                                 ),
-                                cursor="pointer",
-                                size=24
+                                rx.table.cell(
+                                    rx.cond(
+                                        i*2+1 < State.game_moves.length(),
+                                        State.game_moves[i*2+1],
+                                        ""
+                                    ),
+                                    color="white"
+                                )
                             )
-                        ),
-                        spacing="2"
+                        )
                     ),
-                    align_items="center"
+                    bg="#1E3A5F",
+                    padding="1em",
+                    border_radius="8px",
+                    width="100%"
+                ),
+                width="100%",
+                max_width="600px",
+                margin_bottom="2em"
+            ),
+            
+            # Información de la apertura
+            rx.box(
+                rx.heading("Sobre esta Apertura", font_size="1.5em", color="white", margin_bottom="0.5em"),
+                rx.text(
+                    State.recommended_opening['description'],
+                    color="white",
+                    font_size="1.1em",
+                    line_height="1.6",
+                    margin_bottom="1em"
+                ),
+                rx.heading("Planes Estratégicos", font_size="1.3em", color="white", margin_bottom="0.5em"),
+                rx.unordered_list(
+                    rx.foreach(
+                        State.recommended_opening["plans"],
+                        lambda plan: rx.list_item(
+                            plan,
+                            color="white",
+                            margin_bottom="0.5em",
+                            font_size="1.1em"
+                        )
+                    ),
+                    padding_left="1.5em"
+                ),
+                width="100%",
+                max_width="800px"
+            ),
+            
+            # Botones de acción
+            rx.vstack(
+                rx.button(
+                    "Analizar Otra Partida",
+                    bg="#F24100",
+                    color="white",
+                    padding="1em 2em",
+                    on_click=lambda: rx.redirect("/send-game"),
+                    margin_bottom="1em"
                 ),
                 
-                spacing="2",
-                align_items="center",
-                width="100%"
+                rx.text(
+                    "¿Qué te pareció esta recomendación?",
+                    color="white",
+                    font_size="1.2em",
+                    margin_bottom="0.5em"
+                ),
+                
+                rx.hstack(
+                    rx.foreach(
+                        [1,2,3,4,5],
+                        lambda star: rx.icon(
+                            tag="star",
+                            on_click=lambda s=star: State.rate_recommendation(s),
+                            color=rx.cond(
+                                star <= State.rating,
+                                "gold",
+                                "gray"
+                            ),
+                            cursor="pointer",
+                            size=24
+                        )
+                    ),
+                    spacing="2",
+                    margin_bottom="2em"
+                ),
+                align_items="center"
             ),
+            
+            spacing="4",
+            align_items="center",
+            width="100%",
+            padding="1em"
+        ),
         height="auto",
         background_color="#2A5C9A",
         padding="2em"
