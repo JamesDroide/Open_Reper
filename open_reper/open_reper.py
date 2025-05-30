@@ -34,6 +34,10 @@ class State(rx.State):
     description: str = ""
     plans: List[str] = []
 
+    white_player: str = "Blancas"
+    black_player: str = "Negras"
+    game_metadata: dict = {}
+
     # Mapeo de aperturas
     opening_mapping: Dict[str, List[Tuple[str, str]]] = {
         'posicional': [
@@ -80,7 +84,7 @@ class State(rx.State):
                 }
                 # Actualizar recommended_opening y movimientos
                 self.set_recommended_opening(eco_code, style)
-                self.game_moves = self._get_opening_moves(eco_code)
+                self.game_moves = self._get_model_games(eco_code)
                 self.current_move = 0
                 if self.game_moves:
                     self.board_svg = self._render_board(self.game_moves[:self.current_move+1])
@@ -177,28 +181,452 @@ class State(rx.State):
     def _get_opening_moves(self, eco_code: str) -> List[str]:
         """Secuencia de movimientos por apertura"""
         moves = {
-            'E00': ["d4", "Cf6", "c4", "e6", "g3"],
-            'A10': ["c4", "e5", "Cf3", "Cf6", "g3"],
-            'D02': ["d4", "d5", "Cf3", "Cf6", "Af4"],
+            'E00': ["d4", "nf6", "c4", "e6", "g3"],
+            'A10': ["c4", "e5", "Nf3", "Nf6", "g3"],
+            'D02': ["d4", "d5", "Nf3", "Nf6", "Bf4"],
             'C39': ["e4", "e5", "f4", "exf4"],
-            'C44': ["e4", "e5", "Cf3", "Cc6", "d4"],
+            'C44': ["e4", "e5", "Nf3", "Nc6", "d4"],
             'C21': ["e4", "e5", "d4", "exd4", "c3"],
-            'C50': ["e4", "e5", "Cf3", "Cc6", "Ac4"],
-            'C60': ["e4", "e5", "Cf3", "Cc6", "Ab5"],
-            'D00': ["d4", "d5", "c4", "e6", "Cc3"]
+            'C50': ["e4", "e5", "Nf3", "Nc6", "Bc4"],
+            'C60': ["e4", "e5", "Nf3", "Nc6", "Bb5"],
+            'D00': ["d4", "d5", "c4", "e6", "Nc3"]
         }
         return moves.get(eco_code, [])
+    
+    def _get_model_games(self, eco_code: str) -> List[str]:
+        """Obtiene una lista de movimientos de una partida modelo para la apertura dada"""
+        model_games = {
+            'E00': [
+                        "Nf3", "Nf6",
+                        "c4", "e6",
+                        "g3", "d5",
+                        "d4", "Be7",
+                        "Bg2", "O-O",
+                        "O-O", "dxc4",
+                        "Qc2", "a6",
+                        "Qxc4", "b5",
+                        "Qc2", "Bb7",
+                        "Bd2", "Nc6",
+                        "e3", "Nb4",
+                        "Bxb4", "Bxb4",
+                        "a3", "Be7",
+                        "Nbd2", "Rc8",
+                        "b4", "a5",
+                        "Ne5", "Nd5",
+                        "Nb3", "axb4",
+                        "Na5", "Ba8",
+                        "Nac6", "Bxc6",
+                        "Nxc6", "Qd7",
+                        "Bxd5", "exd5",
+                        "axb4", "Rfe8",
+                        "Ra5", "Bf8",
+                        "Ne5", "Qe6",
+                        "Rxb5", "Rb8",
+                        "Rxb8", "Rxb8",
+                        "Qxc7", "Bd6",
+                        "Qa5", "Bxb4",
+                        "Rb1", "Qd6",
+                        "Qa4"
+                    ],
+            'A10': [
+                        "c4", "e5",
+                        "Nc3", "Nf6",
+                        "Nf3", "Nc6",
+                        "g3", "d5",
+                        "cxd5", "Nxd5",
+                        "d3", "Be7",
+                        "Bg2", "Be6",
+                        "O-O", "O-O",
+                        "Bd2", "f5",
+                        "Rc1", "Nb6",
+                        "a3", "Kh8",
+                        "b4", "a5",
+                        "b5", "Nd4",
+                        "Nxd4", "exd4",
+                        "Na4", "Bxa3",
+                        "Ra1", "Bd6",
+                        "Bxb7", "f4",
+                        "Qc2", "Bh3",
+                        "Bxa8", "Qxa8",
+                        "Qc6", "Qxc6",
+                        "bxc6", "fxg3",
+                        "hxg3", "Bxf1",
+                        "Kxf1", "Bxg3",
+                        "Kg2", "Bd6",
+                        "Bxa5", "Nxa4",
+                        "Rxa4", "Ra8",
+                        "e3", "dxe3",
+                        "fxe3", "h5",
+                        "d4", "Re8",
+                        "Bd2", "Kh7",
+                        "Ra5", "Kg6",
+                        "Kf3", "Rf8+",
+                        "Ke2", "h4",
+                        "e4", "Be7",
+                        "Be3", "Rf6",
+                        "Rg5+", "Kf7",
+                        "d5", "Rd6",
+                        "Rf5+", "Ke8",
+                        "Bf4", "g6",
+                        "Bxd6", "gxf5",
+                        "Bxe7"
+                    ],
+            'D02': [
+                        "d4", "e6",
+                        "Nf3", "f5",
+                        "Bf4", "Nf6",
+                        "e3", "Be7",
+                        "Bd3", "O-O",
+                        "Nbd2", "d6",
+                        "c3", "Nc6",
+                        "Qc2", "Qe8",
+                        "h3", "Bd7",
+                        "Bh2", "g6",
+                        "e4", "fxe4",
+                        "Nxe4", "Nxe4",
+                        "Bxe4", "d5",
+                        "Bd3", "Bd6",
+                        "Qe2", "Qe7",
+                        "O-O", "Bxh2+",
+                        "Kxh2", "Rf4",
+                        "Bb5", "Qd6",
+                        "g3", "Rf5",
+                        "Bxc6", "Bxc6",
+                        "Ne5", "Raf8",
+                        "f3", "Be8",
+                        "h4", "c5",
+                        "Rfe1", "cxd4",
+                        "cxd4", "Qb4",
+                        "Qf2", "g5",
+                        "hxg5", "Rxg5",
+                        "a3", "Qe7",
+                        "Rac1", "Rg7",
+                        "Qe3", "Bh5",
+                        "Kh3", "Qf6",
+                        "g4", "Be8",
+                        "Kg3", "Qd8",
+                        "Rh1", "Qb6",
+                        "Rh2", "Qd8",
+                        "Rh6", "Qd6",
+                        "Kg2", "Bg6",
+                        "Rc5", "Qb6",
+                        "Qc3", "Qd8",
+                        "Qc1", "Qf6",
+                        "Rc8", "Qe7",
+                        "Rxf8+", "Qxf8",
+                        "Rh1", "Qd8",
+                        "Qh6", "Qd6",
+                        "Qf4", "Qb6",
+                        "Rc1", "Qd8",
+                        "Kg3", "Be8",
+                        "Qh6", "Bg6",
+                        "Rc3", "Qf8",
+                        "Qc1", "Be8",
+                        "Rc8", "Re7",
+                        "Qg5+", "Kh8",
+                        "Nd3", "Qg7",
+                        "Qh5", "Qf8",
+                        "Qe5+", "Qg7",
+                        "Qb8", "Qf8",
+                        "Qxa7", "h5",
+                        "Qb8", "hxg4",
+                        "fxg4", "Kh7",
+                        "Rc7", "b5",
+                        "Nf4", "Kg8",
+                        "Rxe7", "Qxe7",
+                        "Qe5", "Kf7",
+                        "g5", "Bd7",
+                        "g6+"
+                    ],
+            'C39': [
+                        "e4", "e5",
+                        "f4", "exf4",
+                        "Bc4", "Nf6",
+                        "Nc3", "Bb4",
+                        "Nge2", "d5",
+                        "exd5", "f3",
+                        "gxf3", "O-O",
+                        "d4", "Bh3",
+                        "Bg5", "Bg2",
+                        "Rg1", "Bxf3",
+                        "Qd2", "Be7",
+                        "O-O-O", "Bh5",
+                        "Rde1", "Bg6",
+                        "h4", "Re8",
+                        "Qg2", "Bf8",
+                        "h5", "Bf5",
+                        "Ne6", "fxe6",
+                        "dxe6", "Kh8",
+                        "exd7", "Rxe1+",
+                        "Rxe1", "Bxd7",
+                        "h6", "Bc6",
+                        "d5", "Bd7",
+                        "Rf1", "b5",
+                        "Bb3", "Qe8",
+                        "d6", "Nh5",
+                        "Bf7", "Qe5",
+                        "Qxa8"
+                    ],
+            'C44': [
+                        "e4", "e5",
+                        "Nf3", "Nc6",
+                        "d4", "exd4",
+                        "Nxd4", "Bc5",
+                        "Be3", "Qf6",
+                        "c3", "Nge7",
+                        "Bc4", "O-O",
+                        "O-O", "Bb6",
+                        "Nc2", "d6",
+                        "Bxb6", "axb6",
+                        "f4", "g5",
+                        "f5", "Ne5",
+                        "Be2", "Bd7",
+                        "c4", "g4",
+                        "Nc3", "h5",
+                        "Qd2", "Kh8",
+                        "Qf4", "Bc6",
+                        "Ne3", "Nd7",
+                        "Bxg4", "hxg4",
+                        "Nxg4", "Qh4",
+                        "Rf3", "Ng6",
+                        "Qe3", "Qxg4",
+                        "Qh6+", "Kg8",
+                        "Rh3", "Qxh3",
+                        "gxh3", "Nge5",
+                        "f6", "Nxf6",
+                        "Qxf6", "Rae8",
+                        "Kh1", "Ng6",
+                        "h4", "Re6",
+                        "Qg5", "Rfe8",
+                        "h5", "Re5",
+                        "Qh6", "Rxe4",
+                        "Nxe4", "Rxe4",
+                        "Kg1", "Ne5",
+                        "Qg5+", "Kh7",
+                        "Qf5+", "Kh6",
+                        "Rf1", "Re2",
+                        "Qf6+", "Kh7",
+                        "Qg5", "Be4",
+                        "h6", "Bg6",
+                        "h4", "Re4",
+                        "h5", "Rg4+",
+                        "Qxg4", "Nxg4",
+                        "hxg6+", "fxg6",
+                        "Rf7+", "Kxh6",
+                        "Rxc7", "Ne5",
+                        "Rxb7", "Nxc4",
+                        "b3"
+                    ],
+            'C21': [
+                        "e4", "e5",
+                        "d4", "exd4",
+                        "c3", "dxc3",
+                        "Nxc3", "Bb4",
+                        "Bc4", "Bxc3+",
+                        "bxc3", "d6",
+                        "Qb3", "Qe7",
+                        "Ne2", "Nc6",
+                        "O-O", "Nf6",
+                        "Nd4", "Nxd4",
+                        "cxd4", "O-O",
+                        "Re1", "h6",
+                        "Ba3", "Ng4",
+                        "f3", "Nf6",
+                        "e5", "Nd7",
+                        "exd6", "Qf6",
+                        "dxc7", "Qxd4+",
+                        "Kh1", "Nc5",
+                        "Bxf7+", "Rxf7",
+                        "Bxc5", "Qf6",
+                        "Rad1", "b6",
+                        "Rd6", "Qf5",
+                        "Rd5", "Qf6",
+                        "Be7", "Rxe7",
+                        "Re7", "Kf8",
+                        "Re1", "Bb7",
+                        "Rd7", "Bc6",
+                        "Qb4+", "Kg8",
+                        "Qc4+", "Kh8",
+                        "Qxc6", "Rc8",
+                        "Rd8", "Rxd8",
+                        "cxd8=Q"
+                    ],
+            'C50': [
+                        "e4", "e5",
+                        "Nf3", "Nc6",
+                        "Bc4", "Bc5",
+                        "Nc3", "Nf6",
+                        "d3", "d6",
+                        "Be3", "Bxe3",
+                        "fxe3", "Na5",
+                        "Bb3", "Nxb3",
+                        "axb3", "Ng4",
+                        "Qe2", "f6",
+                        "d4", "c6",
+                        "O-O-O", "Qe7",
+                        "h3", "Nh6",
+                        "g4", "Bd7",
+                        "Nh4", "g6",
+                        "Nf3", "Nf7",
+                        "Rdg1", "O-O-O",
+                        "b4", "Kb8",
+                        "Qf2", "Rdf8",
+                        "Qg3", "h6",
+                        "Rf1", "Nd8",
+                        "Rhg1", "Ne6",
+                        "Rf2", "Nc7",
+                        "Rgf1", "Rfg8",
+                        "Nh4", "Ne8",
+                        "b5", "Ka8",
+                        "bxc6", "bxc6",
+                        "Nf3", "g5",
+                        "Rg2", "h5",
+                        "b3", "Rh6",
+                        "Kb2", "Rgh8",
+                        "Qf2", "Nc7",
+                        "Ra1", "Rb8",
+                        "Qe2", "Rb7",
+                        "Rgg1", "Rh8",
+                        "Qd3", "Be6",
+                        "Nd2", "Nb5",
+                        "Ndb1", "Rbc7",
+                        "Na4", "Rb7",
+                        "Kc1", "Rcb8",
+                        "Rg2", "Rd7",
+                        "Nbc3", "Nc7",
+                        "d5", "cxd5",
+                        "exd5", "Bg8",
+                        "Qc4", "Rc8",
+                        "Kb2", "Rb8",
+                        "e4", "Rdd8",
+                        "Rf2", "Rf8",
+                        "Rdf1", "Bh7",
+                        "Rxf6", "Rxf6",
+                        "Rxf6", "Qxf6",
+                        "Qxc7", "Qh8",
+                        "Qc6+", "Rb7",
+                        "Nb5", "Kb8",
+                        "Qxd6+", "Kc8",
+                        "Qc6+"
+                    ],
+            'C60': [
+                        "e4", "e5",
+                        "Nf3", "Nc6",
+                        "Bb5", "a6",
+                        "Ba4", "Nf6",
+                        "O-O", "Be7",
+                        "Re1", "b5",
+                        "Bb3", "d6",
+                        "c3", "O-O",
+                        "h3", "Bb7",
+                        "d4", "Re8",
+                        "Ng5", "Rf8",
+                        "Nf3", "Re8",
+                        "Nbd2", "Bf8",
+                        "Bc2", "g6",
+                        "a4", "Bg7",
+                        "b4", "c6",
+                        "Bd3", "bxa4",
+                        "Qxa4", "c6",
+                        "c4", "Qc7",
+                        "Nbd2", "Nbd7",
+                        "Bb3", "Reb8",
+                        "Qa3", "Ne8",
+                        "dxc6", "Bxc6",
+                        "Na5", "Nc5",
+                        "b4", "Nxd3",
+                        "Qxd3", "Bd7",
+                        "Rac1", "Rd8",
+                        "Nh2", "Nf6",
+                        "Nf1", "Nh5",
+                        "Ne3", "Nf4",
+                        "Qa3", "Rdc8",
+                        "Nd5", "Nxd5",
+                        "exd5", "f5",
+                        "f4", "Re8",
+                        "Bc3", "exf4",
+                        "Bxg7", "Kxg7",
+                        "Qc3+", "Kg8",
+                        "c5", "Bb5",
+                        "Qd2", "g5",
+                        "Nb3", "Qf7",
+                        "cxd6", "Re4",
+                        "Nc5", "Rae8",
+                        "Ne6", "R8xe6",
+                        "dxe6", "Qxe6",
+                        "Rxe4", "fxe4",
+                        "Rc5", "h6",
+                        "Qd5"
+                    ],
+            'D00': [
+                        "d4", "Nf6",
+                        "c4", "e6",
+                        "Nf3", "d5",
+                        "Nc3", "c6",
+                        "Bg5", "h6",
+                        "Bh4", "dxc4",
+                        "e4", "g5",
+                        "Bg3", "b5",
+                        "Be2", "b4",
+                        "Na4", "Nxe4",
+                        "Be5", "Nf6",
+                        "Nc5", "c3",
+                        "bxc3", "bxc3",
+                        "O-O", "Nbd7",
+                        "Nxd7", "Bxd7",
+                        "Qb3", "Bg7",
+                        "Qa3", "g4",
+                        "Ne1", "c5",
+                        "dxc5", "O-O",
+                        "Bxc3", "h5",
+                        "Rd1", "Nd5",
+                        "Bxg7", "Kxg7",
+                        "Bc4", "Bc6",
+                        "Nc2", "Qf6",
+                        "Nd4", "Ne7",
+                        "f3", "g3",
+                        "hxg3", "Rfd8",
+                        "Nxc6", "Nxc6",
+                        "Qe3", "Nd4",
+                        "g4", "Rac8",
+                        "g5", "Qf5",
+                        "Rxd4", "Qxc5",
+                        "Re4", "Qxe3+",
+                        "Rxe3", "Rc6",
+                        "Rxe6", "fxe6",
+                        "Re1", "Rd6",
+                        "Kh2", "Kg6",
+                        "f4", "Kf5",
+                        "Kg3", "h4+",
+                        "Kxh4", "Kxf4",
+                        "g6", "Rd8",
+                        "Rf1+", "Ke3",
+                        "Kg5", "e5",
+                        "g7"
+                    ]
+        }
+        return model_games.get(eco_code, [])
 
     def _render_board(self, moves: List[str]) -> str:
-        """Genera SVG del tablero como Data URI"""
+        """Genera SVG del tablero como Data URI con mejor calidad"""
         board = chess.Board()
         try:
             for move in moves:
                 board.push_san(move)
-            svg_content = chess.svg.board(board=board, size=400)
+            
+            # Configuración mejorada del SVG
+            svg_content = chess.svg.board(
+                board=board,
+                size=400,
+                coordinates=True,
+                flipped=False,  # Mostrar desde perspectiva de blancas
+                lastmove=board.peek() if board.move_stack else None,  # Resaltar último movimiento
+                check=board.king(board.turn) if board.is_check() else None  # Resaltar jaque
+            )
             encoded_svg = urllib.parse.quote(svg_content)
             return f"data:image/svg+xml;utf8,{encoded_svg}"
-        except Exception:
+        except Exception as e:
+            print(f"Error rendering board: {e}")
             return ""
 
 
@@ -218,6 +646,10 @@ class State(rx.State):
 
     def rate_recommendation(self, stars: int):
         self.rating = stars
+
+    @rx.var
+    def move_pairs(self) -> List[int]:
+        return list(range((len(self.game_moves) + 1) // 2))
 
 def index():
     return rx.box(
@@ -368,118 +800,173 @@ def send_game():
 def recommended_opening():
     return rx.center(
         rx.vstack(
+            rx.heading("Apertura Recomendada", font_size="2em", color="white"),
+            rx.heading(
+                State.recommended_opening['name'],
+                font_size="3em",
+                color="white",
+                margin_bottom="1em"
+            ),
+            
+            # Sección del tablero y controles
+            rx.vstack(
+                rx.image(
+                    src=State.board_svg,
+                    width=["300px", "400px"],
+                    height=["300px", "400px"],
+                    alt="Tablero de Ajedrez",
+                    margin_bottom="1em",
+                ),
                 rx.hstack(
-                    rx.heading(
-                        "La mejor apertura para ti es:",
-                        font_size="2em",
-                        color="white"
-                    )
-                ),
-                
-                # Título de la apertura
-                rx.heading(
-                    State.recommended_opening['name'],
-                    font_size="3em",
-                    color="white",
-                    margin_y="1em"
-                ),
-                
-                rx.cond(
-                    State.game_moves.length() > 0,
-                    rx.table.root(
-                        rx.table.body(
-                            rx.table.row(
-                                rx.table.cell("1.", padding="0 10px"),
-                                rx.table.cell(State.game_moves[0], padding="0 10px"),
-                                rx.table.cell(rx.cond(State.game_moves.length() > 1, State.game_moves[1], ""), padding="0 10px"),
-                            ),
-                            rx.table.row(
-                                rx.table.cell("2.", padding="0 10px"),
-                                rx.table.cell(rx.cond(State.game_moves.length() > 2, State.game_moves[2], ""), padding="0 10px"),
-                                rx.table.cell(rx.cond(State.game_moves.length() > 3, State.game_moves[3], ""), padding="0 10px"),
-                            ),
-                            rx.table.row(
-                                rx.table.cell("3.", padding="0 10px"),
-                                rx.table.cell(rx.cond(State.game_moves.length() > 4, State.game_moves[4], ""), padding="0 10px"),
-                                rx.table.cell(""),
-                            ),
-                        ),
-                        bg="#1E3A5F",
-                        padding="1em",
-                        border_radius="8px",
-                        margin_bottom="2em"
-                    ),
-                    rx.text("Cargando movimientos...", color="white")
-                ),
-                
-                # Descripción y planes
-                rx.box(
-                    rx.text(
-                        State.recommended_opening['description'],
-                        color="white",
-                        font_size="1.1em",
-                        line_height="1.6",
-                        margin_bottom="2em"
-                    ),
-                    rx.heading("Planes Estratégicos:", font_size="1.5em", color="white", margin_bottom="1em"),
-                    rx.unordered_list(
-                        rx.foreach(
-                            State.recommended_opening["plans"],
-                            lambda plan: rx.list_item(
-                                plan,
-                                color="white",
-                                margin_bottom="0.5em",
-                                font_size="1.1em"
-                            )
-                        ),
-                        padding_left="1.5em"
-                    ),
-                    width="100%",
-                    max_width="800px"
-                ),
-                
-                # Botones y valoración
-                rx.vstack(
                     rx.button(
-                        "VOLVER A ANALIZAR",
+                        "← Anterior",
+                        on_click=State.prev_move,
+                        bg="#1E3A5F",
+                        color="white",
+                        disabled=State.current_move <= 0,
+                    ),
+                    rx.text(
+                        f"Movimiento {State.current_move + 1} de {State.game_moves.length()}",
+                        color="white",
+                        padding="0 1em"
+                    ),
+                    rx.button(
+                        "Siguiente →",
+                        on_click=State.next_move,
+                        bg="#1E3A5F",
+                        color="white",
+                        disabled=State.current_move >= State.game_moves.length() - 1,
+                    ),
+                    rx.button(
+                        "Reiniciar",
+                        on_click=State.reset_game,
                         bg="#F24100",
                         color="white",
-                        padding="1em 2em",
-                        on_click=lambda: rx.redirect("/send-game"),
-                        margin_bottom="2em"
+                        margin_left="1em"
                     ),
-                    
-                    rx.text(
-                        "¿Qué te pareció la recomendación?",
-                        color="white",
-                        font_size="1.2em",
-                        margin_bottom="1em"
+                    spacing="3",
+                    margin_bottom="1em",
+                    align="center"
+                ),
+                align_items="center",
+            ),
+            
+            # Visualización de la secuencia de movimientos
+            rx.box(
+                rx.heading("Secuencia de Movimientos", font_size="1.5em", color="white", margin_bottom="0.5em"),
+                rx.table.root(
+                    rx.table.header(
+                        rx.table.row(
+                            rx.table.column_header_cell("#", width="50px"),
+                            rx.table.column_header_cell("Blancas", width="150px"),
+                            rx.table.column_header_cell("Negras", width="150px"),
+                        )
                     ),
-                    
-                    rx.hstack(
+                    rx.table.body(
                         rx.foreach(
-                            [1,2,3,4,5],
-                            lambda star: rx.icon(
-                                tag="star",
-                                on_click=lambda s=star: State.rate_recommendation(s),
-                                color=rx.cond(
-                                    star <= State.rating,
-                                    "gold",
-                                    "gray"
+                            State.move_pairs,
+                            lambda i: rx.table.row(
+                                rx.table.cell(f"{i+1}.", color="white"),
+                                rx.table.cell(
+                                    rx.cond(
+                                        i*2 < State.game_moves.length(),
+                                        State.game_moves[i*2],
+                                        ""
+                                    ),
+                                    color="white"
                                 ),
-                                cursor="pointer",
-                                size=24
+                                rx.table.cell(
+                                    rx.cond(
+                                        i*2+1 < State.game_moves.length(),
+                                        State.game_moves[i*2+1],
+                                        ""
+                                    ),
+                                    color="white"
+                                )
                             )
-                        ),
-                        spacing="2"
+                        )
                     ),
-                    align_items="center"
+                    bg="#1E3A5F",
+                    padding="1em",
+                    border_radius="8px",
+                    width="100%"
+                ),
+                width="100%",
+                max_width="600px",
+                margin_bottom="2em"
+            ),
+            
+            # Información de la apertura
+            rx.box(
+                rx.heading("Sobre esta Apertura", font_size="1.5em", color="white", margin_bottom="0.5em"),
+                rx.text(
+                    State.recommended_opening['description'],
+                    color="white",
+                    font_size="1.1em",
+                    line_height="1.6",
+                    margin_bottom="1em"
+                ),
+                rx.heading("Planes Estratégicos", font_size="1.3em", color="white", margin_bottom="0.5em"),
+                rx.unordered_list(
+                    rx.foreach(
+                        State.recommended_opening["plans"],
+                        lambda plan: rx.list_item(
+                            plan,
+                            color="white",
+                            margin_bottom="0.5em",
+                            font_size="1.1em"
+                        )
+                    ),
+                    padding_left="1.5em"
+                ),
+                width="100%",
+                max_width="800px"
+            ),
+            
+            # Botones de acción
+            rx.vstack(
+                rx.button(
+                    "Analizar Otra Partida",
+                    bg="#F24100",
+                    color="white",
+                    padding="1em 2em",
+                    on_click=lambda: rx.redirect("/send-game"),
+                    margin_bottom="1em"
                 ),
                 
-                spacing="2",
-                align_items="center",
-                width="100%"
+                rx.text(
+                    "¿Qué te pareció esta recomendación?",
+                    color="white",
+                    font_size="1.2em",
+                    margin_bottom="0.5em"
+                ),
+                
+                rx.hstack(
+                    rx.foreach(
+                        [1,2,3,4,5],
+                        lambda star: rx.icon(
+                            tag="star",
+                            on_click=lambda s=star: State.rate_recommendation(s),
+                            color=rx.cond(
+                                star <= State.rating,
+                                "gold",
+                                "gray"
+                            ),
+                            cursor="pointer",
+                            size=24
+                        )
+                    ),
+                    spacing="2",
+                    margin_bottom="2em"
+                ),
+                align_items="center"
             ),
+            
+            spacing="4",
+            align_items="center",
+            width="100%",
+            padding="1em"
+        ),
         height="auto",
         background_color="#2A5C9A",
         padding="2em"
