@@ -4,8 +4,10 @@ import io
 import chardet
 import numpy as np
 import joblib
+import seaborn as sns
 from collections import Counter
 from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.metrics import confusion_matrix
 from imblearn.over_sampling import ADASYN
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense, Dropout
@@ -81,25 +83,28 @@ class ChessStyleAnalyzer:
             - Bajar todos los regularizadores al mismo hiperparametro
         """
         model = Sequential([
-            #Dense(2048, activation='relu', input_shape=(840,), kernel_regularizer=l2(0.001)),
-            Dense(1024, activation='relu', input_shape=(840,), kernel_regularizer=l2(0.001)),
+            Dense(360, activation='relu', input_shape=(360,), kernel_regularizer=l2(0.001)),
             Dropout(0.2),
-            #Dropout(0.6),
-            #Dense(256, activation='relu', kernel_regularizer=l2(0.0005)),
+            Dense(1024, activation='relu', kernel_regularizer=l2(0.001)),
+            Dropout(0.2),
+            Dense(512, activation='relu', kernel_regularizer=l2(0.001)),
+            Dropout(0.2),
             Dense(256, activation='relu', kernel_regularizer=l2(0.001)),
-            Dropout(0.5),
-            #Dropout(0.6),
-            #Dense(128, activation='relu', kernel_regularizer=l2(0.001)),
-            #Dropout(0.3),  # ¡Nuevo dropout reducido!
-            Dense(128, activation='relu', kernel_regularizer=l2(0.001)),
-            Dropout(0.7),
-            #Dropout(0.5),
+            Dropout(0.2),
             Dense(64, activation='relu'),
             Dense(self.num_classes, activation='softmax')
         ])
 
+        """
+        Matriz de confusion predicted vs expected
+
+        Considerar usar Redes Neuronales Recurrentes
+
+        Posible problema de desbalance de clases
+        """
+
         model.compile(
-            optimizer=Adam(learning_rate=0.0001),
+            optimizer=Adam(learning_rate=0.0001), # Posiblemente memorizacion
             loss='categorical_crossentropy',
             metrics=['accuracy']
         )
@@ -111,6 +116,7 @@ class ChessStyleAnalyzer:
         features = []
         labels = []
 
+        """Añadir filtro para que solo acepte partidas de minimo 30 movimientos"""
         for filename, content in uploaded.items():
             try:
                 # Detección de codificación
@@ -123,13 +129,22 @@ class ChessStyleAnalyzer:
                     if not game:
                         break
 
+                    move_count = sum(1 for _ in game.mainline_moves())
+                    if move_count < 60:
+                        continue
+
                     # Obtener estilo del jugador
                     white = game.headers.get('White', '').strip()
                     black = game.headers.get('Black', '').strip()
-                    style = self.style_mapping.get(white) or self.style_mapping.get(black)
+                    style = self.style_mapping.get(white)
+                    color = chess.WHITE
+
+                    if not style:
+                        style = self.style_mapping.get(black)
+                        color = chess.BLACK
 
                     if style:
-                        game_features = self._extract_game_features(game)
+                        game_features = self._extract_game_features(game, color)
                         if game_features:
                             features.append(game_features)
                             labels.append(style)
@@ -143,14 +158,14 @@ class ChessStyleAnalyzer:
             return False
 
         # Asegurar que el LabelEncoder se ajuste correctamente
-        self.label_encoder.fit(list(set(self.style_mapping.values())))  # Forzar todas las clases
+        self.label_encoder.fit(list(set(self.style_mapping.values())))
 
         # Preprocesamiento
         self.y = self.label_encoder.fit_transform(labels)
         self.X = self.scaler.fit_transform(features)
 
         # Balancear datos
-        adasyn = ADASYN(n_neighbors=4)
+        adasyn = ADASYN(n_neighbors=2)
         self.X, self.y = adasyn.fit_resample(self.X, self.y)
 
         print(f"\nDatos procesados: {len(self.X)} partidas")
@@ -160,41 +175,48 @@ class ChessStyleAnalyzer:
         )))
         return True
 
-    def _extract_game_features(self, game):
+    def _extract_game_features(self, game, color):
       """Extrae características avanzadas de una partida de ajedrez"""
-      MOVES_TO_ANALYZE = 60
-      FEATURES_PER_MOVE = 14
+      MOVES_TO_ANALYZE = 30
+      FEATURES_PER_MOVE = 12
       TOTAL_FEATURES = MOVES_TO_ANALYZE * FEATURES_PER_MOVE
 
       board = game.board()
       features = []
       previous_material = 0
+      moves_analyzed = 0
 
       try:
-          for move in list(game.mainline_moves())[:MOVES_TO_ANALYZE]:
+          for i, move in enumerate(game.mainline_moves()):
               board.push(move)
-              move_features = [
-                  # Características estratégicas
-                  self._calculate_material_balance(board),
-                  self._king_safety_score(board),
-                  self._pawn_structure_analysis(board),
-                  self._piece_activity_score(board),
-                  self._control_of_key_squares(board),
-                  self._openness_position(board),
-                  self._development_score(board),
-                  self._sacrifice_detection(board, move, previous_material),
-                  self._tactical_opportunities(board),
-                  self._space_advantage(board),
-                  self._piece_mobility(board),
-                  self._attack_defense_ratio(board),
-                  self._passed_pawns_count(board),
-                  self._bishop_pair_advantage(board)
-              ]
-              features.extend(move_features)
-              previous_material = self._calculate_total_material(board)
+              if board.turn != color:
+                  continue
 
-          # Rellenar con ceros si la partida es más corta
-          features += [0] * (TOTAL_FEATURES - len(features))
+              if moves_analyzed < MOVES_TO_ANALYZE:
+                  move_features = [
+                      # Características estratégicas
+                      self._calculate_material_balance(board),
+                      self._king_safety_score(board),
+                      self._pawn_structure_analysis(board),
+                      self._piece_activity_score(board),
+                      self._control_of_key_squares(board),
+                      self._openness_position(board),
+                      #self._development_score(board),
+                      self._sacrifice_detection(board, move, previous_material),
+                      self._tactical_opportunities(board),
+                      self._space_advantage(board),
+                      self._piece_mobility(board),
+                      #self._attack_defense_ratio(board),
+                      self._passed_pawns_count(board),
+                      self._bishop_pair_advantage(board)
+                  ]
+                  features.extend(move_features)
+                  previous_material = self._calculate_total_material(board)
+                  moves_analyzed += 1
+
+              if len(features) >= TOTAL_FEATURES:
+                  break
+
           return features[:TOTAL_FEATURES]
 
       except Exception as e:
@@ -213,7 +235,7 @@ class ChessStyleAnalyzer:
         }
         white = sum(len(board.pieces(pt, chess.WHITE)) * val for pt, val in piece_values.items())
         black = sum(len(board.pieces(pt, chess.BLACK)) * val for pt, val in piece_values.items())
-        return (white - black) / 10
+        return (white - black) / 10  # Sin la division por 10, la maxima diferencia es de +-45.4
 
     def _king_safety_score(self, board):
         """Evaluación detallada de la seguridad del rey"""
@@ -221,9 +243,10 @@ class ChessStyleAnalyzer:
         if not king_square:
             return 0
 
-        safety_score = 0
         # Escudo de peones
-        pawn_shield = sum(1 for sq in board.attacks(king_square) if board.piece_type_at(sq) == chess.PAWN)
+        pawn_shield = sum(1 for sq in board.attacks(king_square)
+              if board.piece_type_at(sq) == chess.PAWN
+              and board.color_at(sq) == board.turn)
 
         # Ataques potenciales
         attackers = len(board.attackers(not board.turn, king_square))
@@ -233,7 +256,7 @@ class ChessStyleAnalyzer:
         rank = chess.square_rank(king_square)
         center_distance = abs(3.5 - file) + abs(3.5 - rank)
 
-        return (pawn_shield * 0.5) - (attackers * 0.3) - (center_distance * 0.2)
+        return (pawn_shield * 0.5) - (attackers * 0.3) - (center_distance * 0.2) # Entre -2 y +3
 
     def _piece_mobility(self, board):
         """Movilidad de las piezas (número de movimientos legales disponibles)"""
@@ -241,7 +264,7 @@ class ChessStyleAnalyzer:
         for piece_type in [chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN]:
             for sq in board.pieces(piece_type, board.turn):
                 mobility += len(board.attacks(sq))
-        return mobility / 50  # Normalizado según movilidad máxima típica
+        return mobility / 50
 
     def _attack_defense_ratio(self, board):
         """Relación entre ataques y defensas en el tablero"""
@@ -299,7 +322,7 @@ class ChessStyleAnalyzer:
                         break
             if is_passed:
                 passed += 1
-        return passed / 8  # Normalizado
+        return passed / 8
 
     def _development_score(self, board):
         """Puntaje de desarrollo de piezas menores"""
@@ -342,7 +365,7 @@ class ChessStyleAnalyzer:
         for piece_type in [chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN]:
             for sq in board.pieces(piece_type, board.turn):
                 activity += len(board.attacks(sq))
-        return activity / 20  # Normalizado
+        return activity / 20
 
     def _control_of_key_squares(self, board):
         """Control de centros estratégicos y casillas clave"""
@@ -427,7 +450,7 @@ class ChessStyleAnalyzer:
 
         X_train, X_test, y_train, y_test = train_test_split(
             self.X,
-            y_onehot,  # Usar el one-hot encoding correcto
+            y_onehot,
             test_size=0.2,
             random_state=42
         )
@@ -439,6 +462,9 @@ class ChessStyleAnalyzer:
             restore_best_weights=True,
             min_delta=0.0001
         )
+
+        print("\n== Resumen del Modelo ==")
+        self.model.summary()
 
         # Entrenamiento
         history = self.model.fit(
@@ -452,9 +478,14 @@ class ChessStyleAnalyzer:
 
         # Evaluación final
         loss, accuracy = self.model.evaluate(X_test, y_test, verbose=0)
+
+        y_pred = np.argmax(self.model.predict(X_test), axis=1)
+        y_true = np.argmax(y_test, axis=1)
+        conf_matrix = confusion_matrix(y_true, y_pred)
+
         print(f"\nPrecisión final en test: {accuracy*100:.2f}%")
 
-        self._plot_training_history(history)
+        self._plot_training_history(history, conf_matrix)
 
     def recommend_opening(self, pgn_text):
         """Realiza una recomendación de apertura con validaciones mejoradas"""
@@ -486,7 +517,7 @@ class ChessStyleAnalyzer:
                 }
 
             # --- Procesamiento normal si pasa validaciones ---
-            features = self._extract_game_features(game)
+            features = self._extract_game_features(game, chess.WHITE)
             if features is None:
                 return {
                     "status": "error",
@@ -522,12 +553,12 @@ class ChessStyleAnalyzer:
             'label_encoder': self.label_encoder,
             'style_mapping': self.style_mapping,
             'opening_mapping': self.opening_mapping,
-            'style_spanish_mapping': self.style_spanish_mapping  # Agregado mapeo español
+            'style_spanish_mapping': self.style_spanish_mapping
         }
 
         # Guardar modelo en múltiples formatos
-        self.model.save(f"{filename}.keras")  # Formato moderno
-        self.model.save(f"{filename}.h5")     # Compatibilidad legacy
+        self.model.save(f"{filename}.keras")
+        self.model.save(f"{filename}.h5")
 
         # Guardar metadatos
         with open(f"{filename}_data.joblib", 'wb') as f:
@@ -549,9 +580,8 @@ class ChessStyleAnalyzer:
         analyzer.label_encoder = model_data['label_encoder']
         analyzer.style_mapping = model_data['style_mapping']
         analyzer.opening_mapping = model_data['opening_mapping']
-        analyzer.style_spanish_mapping = model_data.get('style_spanish_mapping', {})  # Backward compatibility
+        analyzer.style_spanish_mapping = model_data.get('style_spanish_mapping', {})
 
-        # Cargar modelo priorizando formato moderno
         try:
             analyzer.model = load_model(f"{filename}.keras")
         except:
@@ -560,11 +590,14 @@ class ChessStyleAnalyzer:
         print(f"Modelo cargado exitosamente desde {filename}")
         return analyzer
 
-    def _plot_training_history(self, history):
-        """Genera gráficos de precisión y pérdida"""
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 7))
+    def _plot_training_history(self, history, conf_matrix):
+        """Genera gráficos de precisión, pérdida y matriz de confusión"""
+        style_names = self.label_encoder.classes_
+
+        fig = plt.figure(figsize=(20, 7))
 
         # Gráfico de precisión
+        ax1 = plt.subplot(1, 3, 1)
         ax1.plot(history.history['accuracy'], label='Entrenamiento', linewidth=2)
         ax1.plot(history.history['val_accuracy'], label='Validación', linewidth=2)
         ax1.set_title('Evolución de la Precisión', pad=20, fontsize=16)
@@ -573,12 +606,21 @@ class ChessStyleAnalyzer:
         ax1.legend(loc='lower right', frameon=True, fontsize=10)
 
         # Gráfico de pérdida
+        ax2 = plt.subplot(1, 3, 2)
         ax2.plot(history.history['loss'], label='Entrenamiento', linewidth=2)
         ax2.plot(history.history['val_loss'], label='Validación', linewidth=2)
         ax2.set_title('Evolución de la Pérdida', pad=20, fontsize=16)
         ax2.set_ylabel('Pérdida', fontsize=12)
         ax2.set_xlabel('Época', fontsize=12)
         ax2.legend(loc='upper right', frameon=True, fontsize=10)
+
+        # Matriz de confusión
+        ax3 = plt.subplot(1, 3, 3)
+        sns.heatmap(conf_matrix, annot=True, fmt='d', ax=ax3, cmap='Blues',
+                    xticklabels=style_names, yticklabels=style_names)
+        ax3.set_title('Matriz de Confusión', pad=20, fontsize=16)
+        ax3.set_xlabel('Predicho', fontsize=12)
+        ax3.set_ylabel('Verdadero', fontsize=12)
 
         plt.tight_layout()
         plt.show()
