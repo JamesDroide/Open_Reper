@@ -4,6 +4,7 @@ import io
 import chardet
 import numpy as np
 import joblib
+import seaborn as sns
 from collections import Counter
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import confusion_matrix
@@ -484,6 +485,8 @@ class ChessStyleAnalyzer:
 
         print(f"\nPrecisión final en test: {accuracy*100:.2f}%")
 
+        self._plot_training_history(history, conf_matrix)
+
     def recommend_opening(self, pgn_text):
         """Realiza una recomendación de apertura con validaciones mejoradas"""
         try:
@@ -586,3 +589,38 @@ class ChessStyleAnalyzer:
 
         print(f"Modelo cargado exitosamente desde {filename}")
         return analyzer
+
+    def _plot_training_history(self, history, conf_matrix):
+        """Genera gráficos de precisión, pérdida y matriz de confusión"""
+        style_names = self.label_encoder.classes_
+
+        fig = plt.figure(figsize=(20, 7))
+
+        # Gráfico de precisión
+        ax1 = plt.subplot(1, 3, 1)
+        ax1.plot(history.history['accuracy'], label='Entrenamiento', linewidth=2)
+        ax1.plot(history.history['val_accuracy'], label='Validación', linewidth=2)
+        ax1.set_title('Evolución de la Precisión', pad=20, fontsize=16)
+        ax1.set_ylabel('Precisión', fontsize=12)
+        ax1.set_xlabel('Época', fontsize=12)
+        ax1.legend(loc='lower right', frameon=True, fontsize=10)
+
+        # Gráfico de pérdida
+        ax2 = plt.subplot(1, 3, 2)
+        ax2.plot(history.history['loss'], label='Entrenamiento', linewidth=2)
+        ax2.plot(history.history['val_loss'], label='Validación', linewidth=2)
+        ax2.set_title('Evolución de la Pérdida', pad=20, fontsize=16)
+        ax2.set_ylabel('Pérdida', fontsize=12)
+        ax2.set_xlabel('Época', fontsize=12)
+        ax2.legend(loc='upper right', frameon=True, fontsize=10)
+
+        # Matriz de confusión
+        ax3 = plt.subplot(1, 3, 3)
+        sns.heatmap(conf_matrix, annot=True, fmt='d', ax=ax3, cmap='Blues',
+                    xticklabels=style_names, yticklabels=style_names)
+        ax3.set_title('Matriz de Confusión', pad=20, fontsize=16)
+        ax3.set_xlabel('Predicho', fontsize=12)
+        ax3.set_ylabel('Verdadero', fontsize=12)
+
+        plt.tight_layout()
+        plt.show()
