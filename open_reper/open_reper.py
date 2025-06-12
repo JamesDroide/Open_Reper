@@ -1,6 +1,6 @@
 import reflex as rx
 from reflex.components.core.breakpoints import Breakpoints
-from open_reper.model_loader import analyzer
+from open_reper.model_loader import analyzer, recommender
 import asyncio
 import chess
 import chess.svg
@@ -62,46 +62,80 @@ class State(rx.State):
         'Combinativo': 'Aperturas dinámicas con combinaciones tácticas agresivas.',
         'Universal': 'Aperturas versátiles que combinan estrategia y táctica.'
     }
+    
+    openings = {
+            'Catalana': 'E00',
+            'Inglesa': 'A10',
+            'Londres': 'D02',
+            'Escocesa': 'C44',
+            'Gambito_de_Rey': 'C39',
+            'Gambito_Danes': 'C21',
+            'Italiana': 'C50',
+            'Española': 'C60',
+            'Gambito_de_Dama': 'D00'
+        }
 
     @rx.event
     async def get_recommendation(self):
         self.is_loading = True
         self.error = ""
         try:
+            # Análisis de estilo
             result = await asyncio.get_event_loop().run_in_executor(
                 None, 
-                lambda: analyzer.recommend_opening(self.pgn_text)
+                lambda: analyzer.detect_style(self.pgn_text)
             )
             
-            if result['status'] == 'success':
-                style = result['style']
-                opening = result['opening']
-                eco_code = opening['eco']
-                self.recommendation = {
-                    "champion": style,
-                    "description": self.style_descriptions.get(style, ""),
-                    "opening": f"{eco_code} - {opening['name']}"
-                }
-                # Actualizar recommended_opening y movimientos
-                self.set_recommended_opening(eco_code, style)
-                self.game_moves = self._get_model_games(eco_code)
-                self.current_move = 0
-                if self.game_moves:
-                    self.board_svg = self._render_board(self.game_moves[:self.current_move+1])
-            else:
+            if result['status'] != 'success':
                 self.error = result['message']
+                return
+
+            style = result['style']
+            self.recommendation = {
+                "style": style,
+                "description": self.style_descriptions.get(style, ""),
+            }
+
+            # Obtención de recomendación de apertura
+            result_opening = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: recommender.recommend_for_pgn(self.pgn_text, style.lower())
+            )
+
+            # Validación de respuesta del recomendador
+            if not isinstance(result_opening, list) or len(result_opening) == 0:
+                self.error = "No se encontraron recomendaciones válidas"
+                return
+
+            # Extracción de datos de la apertura
+            recommended_opening = result_opening[0]['apertura']
+            eco_code = self.openings.get(recommended_opening)
+            
+            if not eco_code:
+                self.error = f"No se encontró código ECO para {recommended_opening}"
+                return
+
+            # Actualización de estado
+            self.recommendation['opening'] = f"Apertura {recommended_opening.replace('_', ' ')}"
+            self.set_recommended_opening(recommended_opening, style)
+            self.game_moves = self._get_model_games(eco_code)
+            self.current_move = 0
+            
+            if self.game_moves:
+                self.board_svg = self._render_board(self.game_moves[:self.current_move+1])
+
         except Exception as e:
             self.error = f"Error procesando PGN: {str(e)}"
         finally:
             self.is_loading = False
 
-    def set_recommended_opening(self, eco_code: str, style: str):
+    def set_recommended_opening(self, opening: str, style: str):
         self.recommended_opening = {
-            "eco": eco_code,
-            "name": self._get_opening_name(eco_code),
+            "eco": self.openings[opening],
+            "name": f"Apertura {opening.replace('_', ' ')}",
             "style": style,
-            "description": self._get_opening_description(eco_code),
-            "plans": self._get_plans(eco_code)
+            "description": self._get_opening_description(self.openings[opening]),
+            "plans": self._get_plans(self.openings[opening])
         }
 
     def _get_opening_name(self, eco_code: str) -> str:
@@ -741,6 +775,7 @@ def send_game():
     return rx.center(
         rx.vstack(
             rx.heading("Recomendador de Aperturas", font_size="2em", color="white"),
+            rx.heading("Envía tu partida PGN", font_size="1.5em", color="white"),
             rx.text_area(
                 placeholder="Pega tu PGN aquí...",
                 on_change=State.set_pgn_text,
@@ -768,7 +803,7 @@ def send_game():
                 State.recommendation,
                 rx.box(
                     rx.text("Recomendación:", font_weight="bold", color="white"),
-                    rx.text(f"Estilo: {State.recommendation['champion']}", color="white"),
+                    rx.text(f"Estilo: {State.recommendation['style']}", color="white"),
                     rx.text(f"Apertura: {State.recommendation['opening']}", color="white"),
                     rx.text(f"Descripción: {State.recommendation['description']}", color="white"),
                     rx.link(
@@ -795,7 +830,7 @@ def send_game():
             width="100%",
             max_width="800px"
         ),
-        height="100vh",
+        height="100%",
         background_color="#2A5C9A",
         padding="2em",
     )

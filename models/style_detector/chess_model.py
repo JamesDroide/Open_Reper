@@ -1,22 +1,14 @@
 import chess
 import chess.pgn
 import io
-import chardet
 import numpy as np
 import joblib
-import seaborn as sns
 from collections import Counter
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.metrics import confusion_matrix
-from imblearn.over_sampling import ADASYN
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.utils import to_categorical
-from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
 import random
 
 class ChessStyleAnalyzer:
@@ -75,13 +67,6 @@ class ChessStyleAnalyzer:
         }
 
     def _build_neural_network(self):
-        """
-            - Quitar Dropouts y solo en la ultima capa
-            - Aumentar el numero de neuronas a 1600-2000 aprox
-            - Estandarizar los valores
-            - El segundo y tercer regularizar es probable que este al reves
-            - Bajar todos los regularizadores al mismo hiperparametro
-        """
         model = Sequential([
             Dense(360, activation='relu', input_shape=(360,), kernel_regularizer=l2(0.001)),
             Dropout(0.2),
@@ -95,85 +80,12 @@ class ChessStyleAnalyzer:
             Dense(self.num_classes, activation='softmax')
         ])
 
-        """
-        Matriz de confusion predicted vs expected
-
-        Considerar usar Redes Neuronales Recurrentes
-
-        Posible problema de desbalance de clases
-        """
-
         model.compile(
             optimizer=Adam(learning_rate=0.0001), # Posiblemente memorizacion
             loss='categorical_crossentropy',
             metrics=['accuracy']
         )
         return model
-
-    def process_pgns(self):
-        """Procesa archivos PGN subidos y extrae características"""
-        uploaded = files.upload()
-        features = []
-        labels = []
-
-        """Añadir filtro para que solo acepte partidas de minimo 30 movimientos"""
-        for filename, content in uploaded.items():
-            try:
-                # Detección de codificación
-                enc = chardet.detect(content)['encoding'] or 'latin-1'
-                pgn_text = content.decode(enc, errors='replace')
-                pgn = io.StringIO(pgn_text)
-
-                while True:
-                    game = chess.pgn.read_game(pgn)
-                    if not game:
-                        break
-
-                    move_count = sum(1 for _ in game.mainline_moves())
-                    if move_count < 60:
-                        continue
-
-                    # Obtener estilo del jugador
-                    white = game.headers.get('White', '').strip()
-                    black = game.headers.get('Black', '').strip()
-                    style = self.style_mapping.get(white)
-                    color = chess.WHITE
-
-                    if not style:
-                        style = self.style_mapping.get(black)
-                        color = chess.BLACK
-
-                    if style:
-                        game_features = self._extract_game_features(game, color)
-                        if game_features:
-                            features.append(game_features)
-                            labels.append(style)
-
-            except Exception as e:
-                print(f"Error procesando {filename}: {str(e)}")
-                continue
-
-        if not features:
-            print("No hay datos válidos para entrenar")
-            return False
-
-        # Asegurar que el LabelEncoder se ajuste correctamente
-        self.label_encoder.fit(list(set(self.style_mapping.values())))
-
-        # Preprocesamiento
-        self.y = self.label_encoder.fit_transform(labels)
-        self.X = self.scaler.fit_transform(features)
-
-        # Balancear datos
-        adasyn = ADASYN(n_neighbors=2)
-        self.X, self.y = adasyn.fit_resample(self.X, self.y)
-
-        print(f"\nDatos procesados: {len(self.X)} partidas")
-        print("Distribución de estilos:", dict(zip(
-            self.label_encoder.inverse_transform(np.unique(self.y)),
-            np.bincount(self.y)
-        )))
-        return True
 
     def _extract_game_features(self, game, color):
       """Extrae características avanzadas de una partida de ajedrez"""
@@ -444,50 +356,7 @@ class ChessStyleAnalyzer:
         black_pair = 1 if black_bishops >= 2 else 0
         return white_pair - black_pair
 
-    def train_model(self):
-        # Preparar datos con one-hot encoding
-        y_onehot = to_categorical(self.y, num_classes=self.num_classes)
-
-        X_train, X_test, y_train, y_test = train_test_split(
-            self.X,
-            y_onehot,
-            test_size=0.2,
-            random_state=42
-        )
-
-        # Configurar early stopping
-        early_stop = EarlyStopping(
-            monitor='val_loss',
-            patience=10,
-            restore_best_weights=True,
-            min_delta=0.0001
-        )
-
-        print("\n== Resumen del Modelo ==")
-        self.model.summary()
-
-        # Entrenamiento
-        history = self.model.fit(
-            X_train, y_train,
-            epochs=150,
-            batch_size=128,
-            validation_data=(X_test, y_test),
-            callbacks=[early_stop],
-            verbose=1
-        )
-
-        # Evaluación final
-        loss, accuracy = self.model.evaluate(X_test, y_test, verbose=0)
-
-        y_pred = np.argmax(self.model.predict(X_test), axis=1)
-        y_true = np.argmax(y_test, axis=1)
-        conf_matrix = confusion_matrix(y_true, y_pred)
-
-        print(f"\nPrecisión final en test: {accuracy*100:.2f}%")
-
-        self._plot_training_history(history, conf_matrix)
-
-    def recommend_opening(self, pgn_text):
+    def detect_style(self, pgn_text):
         """Realiza una recomendación de apertura con validaciones mejoradas"""
         try:
             # --- Validación 1: Input vacío o texto no válido ---
@@ -546,26 +415,6 @@ class ChessStyleAnalyzer:
                 "message": f"Error inesperado: {str(e)}"
             }
 
-    def save_model(self, filename):
-        """Guarda el modelo y metadatos de forma robusta"""
-        model_data = {
-            'scaler': self.scaler,
-            'label_encoder': self.label_encoder,
-            'style_mapping': self.style_mapping,
-            'opening_mapping': self.opening_mapping,
-            'style_spanish_mapping': self.style_spanish_mapping
-        }
-
-        # Guardar modelo en múltiples formatos
-        self.model.save(f"{filename}.keras")
-        self.model.save(f"{filename}.h5")
-
-        # Guardar metadatos
-        with open(f"{filename}_data.joblib", 'wb') as f:
-            joblib.dump(model_data, f)
-
-        print(f"Modelo guardado exitosamente: {filename}.keras + metadatos")
-
     @classmethod
     def load_model(cls, filename):
         """Carga el modelo y metadatos con verificación de integridad"""
@@ -589,38 +438,3 @@ class ChessStyleAnalyzer:
 
         print(f"Modelo cargado exitosamente desde {filename}")
         return analyzer
-
-    def _plot_training_history(self, history, conf_matrix):
-        """Genera gráficos de precisión, pérdida y matriz de confusión"""
-        style_names = self.label_encoder.classes_
-
-        fig = plt.figure(figsize=(20, 7))
-
-        # Gráfico de precisión
-        ax1 = plt.subplot(1, 3, 1)
-        ax1.plot(history.history['accuracy'], label='Entrenamiento', linewidth=2)
-        ax1.plot(history.history['val_accuracy'], label='Validación', linewidth=2)
-        ax1.set_title('Evolución de la Precisión', pad=20, fontsize=16)
-        ax1.set_ylabel('Precisión', fontsize=12)
-        ax1.set_xlabel('Época', fontsize=12)
-        ax1.legend(loc='lower right', frameon=True, fontsize=10)
-
-        # Gráfico de pérdida
-        ax2 = plt.subplot(1, 3, 2)
-        ax2.plot(history.history['loss'], label='Entrenamiento', linewidth=2)
-        ax2.plot(history.history['val_loss'], label='Validación', linewidth=2)
-        ax2.set_title('Evolución de la Pérdida', pad=20, fontsize=16)
-        ax2.set_ylabel('Pérdida', fontsize=12)
-        ax2.set_xlabel('Época', fontsize=12)
-        ax2.legend(loc='upper right', frameon=True, fontsize=10)
-
-        # Matriz de confusión
-        ax3 = plt.subplot(1, 3, 3)
-        sns.heatmap(conf_matrix, annot=True, fmt='d', ax=ax3, cmap='Blues',
-                    xticklabels=style_names, yticklabels=style_names)
-        ax3.set_title('Matriz de Confusión', pad=20, fontsize=16)
-        ax3.set_xlabel('Predicho', fontsize=12)
-        ax3.set_ylabel('Verdadero', fontsize=12)
-
-        plt.tight_layout()
-        plt.show()
