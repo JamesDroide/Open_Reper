@@ -830,7 +830,7 @@ def send_game():
             width="100%",
             max_width="800px"
         ),
-        height="100%",
+        height="100vh",
         background_color="#2A5C9A",
         padding="2em",
     )
