@@ -113,12 +113,10 @@ class ChessStyleAnalyzer:
                       self._piece_activity_score(board),
                       self._control_of_key_squares(board),
                       self._openness_position(board),
-                      #self._development_score(board),
                       self._sacrifice_detection(board, move, previous_material),
                       self._tactical_opportunities(board),
                       self._space_advantage(board),
                       self._piece_mobility(board),
-                      #self._attack_defense_ratio(board),
                       self._passed_pawns_count(board),
                       self._bishop_pair_advantage(board)
                   ]
@@ -178,18 +176,6 @@ class ChessStyleAnalyzer:
                 mobility += len(board.attacks(sq))
         return mobility / 50
 
-    def _attack_defense_ratio(self, board):
-        """Relación entre ataques y defensas en el tablero"""
-        attack_count = 0
-        defense_count = 0
-        for square in chess.SQUARES:
-            if board.piece_at(square):
-                attack_count += len(board.attackers(board.turn, square))
-                defense_count += len(board.attackers(not board.turn, square))
-        if defense_count == 0:
-            return 1.0 if attack_count > 0 else 0.0
-        return (attack_count - defense_count) / (attack_count + defense_count)
-
     def _is_passed_pawn(self, board, pawn_square):
         """Verifica si un peón es pasado"""
         color = board.color_at(pawn_square)
@@ -235,21 +221,6 @@ class ChessStyleAnalyzer:
             if is_passed:
                 passed += 1
         return passed / 8
-
-    def _development_score(self, board):
-        """Puntaje de desarrollo de piezas menores"""
-        developed = 0
-        # Para blancas: piezas en filas 0-1 son no desarrolladas
-        # Para negras: piezas en filas 6-7 son no desarrolladas
-        back_rank = 0 if board.turn == chess.WHITE else 7
-        second_rank = 1 if board.turn == chess.WHITE else 6
-
-        for piece_type in [chess.KNIGHT, chess.BISHOP]:
-            for sq in board.pieces(piece_type, board.turn):
-                if chess.square_rank(sq) not in [back_rank, second_rank]:
-                    developed += 1
-        # Máximo 4 piezas (2 caballos y 2 alfiles)
-        return developed / 4
 
     def _pawn_structure_analysis(self, board):
         """Análisis completo de estructura de peones"""
@@ -356,7 +327,7 @@ class ChessStyleAnalyzer:
         black_pair = 1 if black_bishops >= 2 else 0
         return white_pair - black_pair
 
-    def detect_style(self, pgn_text):
+    def detect_style(self, pgn_text, color):
         """Realiza una recomendación de apertura con validaciones mejoradas"""
         try:
             # --- Validación 1: Input vacío o texto no válido ---
@@ -386,7 +357,8 @@ class ChessStyleAnalyzer:
                 }
 
             # --- Procesamiento normal si pasa validaciones ---
-            features = self._extract_game_features(game, chess.WHITE)
+            chess_color = chess.WHITE if color.lower() == 'white' else chess.BLACK
+            features = self._extract_game_features(game, chess_color)
             if features is None:
                 return {
                     "status": "error",
