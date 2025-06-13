@@ -101,7 +101,7 @@ class State(rx.State):
             # Obtención de recomendación de apertura
             result_opening = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: recommender.recommend_for_pgn(self.pgn_text, style.lower())
+                lambda: recommender.recommend_for_pgn(self.pgn_text, color, style.lower())
             )
 
             # Validación de respuesta del recomendador
