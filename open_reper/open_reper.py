@@ -37,6 +37,7 @@ class State(rx.State):
     white_player: str = "Blancas"
     black_player: str = "Negras"
     game_metadata: dict = {}
+    selected_color: str = "white"
 
     # Mapeo de aperturas
     opening_mapping: Dict[str, List[Tuple[str, str]]] = {
@@ -79,11 +80,12 @@ class State(rx.State):
     async def get_recommendation(self):
         self.is_loading = True
         self.error = ""
+        color = self.selected_color
         try:
             # Análisis de estilo
             result = await asyncio.get_event_loop().run_in_executor(
                 None, 
-                lambda: analyzer.detect_style(self.pgn_text)
+                lambda: analyzer.detect_style(self.pgn_text, color)
             )
             
             if result['status'] != 'success':
@@ -786,6 +788,49 @@ def send_game():
                 color="black",
                 bg="white"
             ),
+            rx.heading("Selecciona tu color:", font_size="1.2em", color="white"),
+            rx.hstack(
+                rx.image(
+                    src="/white-pawn.png",
+                    width="64px",
+                    height="64px",
+                    border=rx.cond(
+                        State.selected_color == "white",
+                        "3px solid #F24100",
+                        "3px solid transparent"
+                    ),
+                    border_radius="8px",
+                    on_click=lambda: State.set_selected_color("white"),
+                    cursor="pointer",
+                    transition="transform 0.2s",
+                    _hover={"transform": "scale(1.1) rotate(-5deg)"},
+                    _active={"transform": "scale(0.95) rotate(5deg)"}
+                ),
+                rx.image(
+                    src="/black-pawn.png",
+                    width="64px",
+                    height="64px",
+                    border=rx.cond(
+                        State.selected_color == "black",
+                        "3px solid #F24100",
+                        "3px solid transparent"
+                    ),
+                    border_radius="8px",
+                    on_click=lambda: State.set_selected_color("black"),
+                    cursor="pointer",
+                    transition="transform 0.2s",
+                    _hover={"transform": "scale(1.1) rotate(-5deg)"},
+                    _active={"transform": "scale(0.95) rotate(5deg)"}
+                ),
+                spacing="4",
+                margin_top="2em",
+                justify_content="center"
+            ),
+            rx.cond(
+                State.selected_color == "white",
+                rx.badge("Blancas seleccionadas", color_scheme="orange"),
+                rx.badge("Negras seleccionadas", color_scheme="orange")
+            ),
             rx.button(
                 "Obtener Recomendación",
                 on_click=State.get_recommendation,
@@ -830,7 +875,7 @@ def send_game():
             width="100%",
             max_width="800px"
         ),
-        height="100vh",
+        height="auto",
         background_color="#2A5C9A",
         padding="2em",
     )
@@ -973,31 +1018,6 @@ def recommended_opening():
                     margin_bottom="1em"
                 ),
                 
-                rx.text(
-                    "¿Qué te pareció esta recomendación?",
-                    color="white",
-                    font_size="1.2em",
-                    margin_bottom="0.5em"
-                ),
-                
-                rx.hstack(
-                    rx.foreach(
-                        [1,2,3,4,5],
-                        lambda star: rx.icon(
-                            tag="star",
-                            on_click=lambda s=star: State.rate_recommendation(s),
-                            color=rx.cond(
-                                star <= State.rating,
-                                "gold",
-                                "gray"
-                            ),
-                            cursor="pointer",
-                            size=24
-                        )
-                    ),
-                    spacing="2",
-                    margin_bottom="2em"
-                ),
                 align_items="center"
             ),
             
