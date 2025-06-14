@@ -39,25 +39,7 @@ class OpeningRecommender:
         self.style_encoder.fit(styles)
 
         self.model = None
-
-    def _build_recommendation_model(self, input_shape, num_openings):
-        """Construye la red neuronal para recomendación de aperturas"""
-        model = Sequential([
-            Dense(256, activation='relu', input_shape=(input_shape,)),
-            Dropout(0.4),
-            Dense(128, activation='relu'),
-            Dropout(0.3),
-            Dense(64, activation='relu'),
-            Dense(num_openings, activation='softmax')
-        ])
-
-        model.compile(
-            optimizer=Adam(learning_rate=0.0008),
-            loss='categorical_crossentropy',
-            metrics=['accuracy']
-        )
-        return model
-
+        
     def _extract_game_features(self, game, style, color=chess.WHITE):
         """Extrae características avanzadas de una partida de ajedrez con estilo"""
         MOVES_TO_ANALYZE = 30

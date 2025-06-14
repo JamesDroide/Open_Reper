@@ -5,11 +5,7 @@ import numpy as np
 import joblib
 from collections import Counter
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Dense, Dropout
-from tensorflow.keras.regularizers import l2
-from tensorflow.keras.optimizers import Adam
-import random
+from tensorflow.keras.models import load_model
 
 class ChessStyleAnalyzer:
     def __init__(self):
@@ -41,24 +37,6 @@ class ChessStyleAnalyzer:
         self.label_encoder = LabelEncoder()
         self.label_encoder.fit(self.unique_styles)
         self.model = None
-
-        self.opening_mapping = {
-            'positional': [
-                ('E00', 'Apertura Catalana'),
-                ('A10', 'Apertura Inglesa'),
-                ('D02', 'Sistema Londres')
-            ],
-            'combinative': [
-                ('C39', 'Gambito de Rey'),
-                ('C44', 'Apertura Escocesa'),
-                ('C21', 'Gambito Danés')
-            ],
-            'universal': [
-                ('C50', 'Apertura Italiana'),
-                ('C60', 'Apertura Española'),
-                ('D00', 'Gambito de Dama')
-            ]
-        }
 
         self.style_spanish_mapping = {
             'positional' : 'Posicional',
