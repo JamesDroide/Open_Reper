@@ -353,9 +353,7 @@ class OpeningRecommender:
                     continue
                 recommendations.append({
                     'apertura': opening,
-                    'estilo': self.opening_mapping[opening]['style'],
-                    'probabilidad': float(prob),
-                    'ponderacion' : 0.00
+                    'probabilidad': round(float(prob), 2)
                 })
 
             recommendations.sort(key=lambda x: (-x['probabilidad'], x['apertura']))

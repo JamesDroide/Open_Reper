@@ -40,7 +40,7 @@ class ChessStyleAnalyzer:
         self.scaler = StandardScaler()
         self.label_encoder = LabelEncoder()
         self.label_encoder.fit(self.unique_styles)
-        self.model = self._build_neural_network()
+        self.model = None
 
         self.opening_mapping = {
             'positional': [
@@ -65,27 +65,6 @@ class ChessStyleAnalyzer:
             'combinative' : 'Combinativo',
             'universal' : 'Universal'
         }
-
-    def _build_neural_network(self):
-        model = Sequential([
-            Dense(360, activation='relu', input_shape=(360,), kernel_regularizer=l2(0.001)),
-            Dropout(0.2),
-            Dense(1024, activation='relu', kernel_regularizer=l2(0.001)),
-            Dropout(0.2),
-            Dense(512, activation='relu', kernel_regularizer=l2(0.001)),
-            Dropout(0.2),
-            Dense(256, activation='relu', kernel_regularizer=l2(0.001)),
-            Dropout(0.2),
-            Dense(64, activation='relu'),
-            Dense(self.num_classes, activation='softmax')
-        ])
-
-        model.compile(
-            optimizer=Adam(learning_rate=0.0001), # Posiblemente memorizacion
-            loss='categorical_crossentropy',
-            metrics=['accuracy']
-        )
-        return model
 
     def _extract_game_features(self, game, color):
       """Extrae características avanzadas de una partida de ajedrez"""
@@ -370,15 +349,9 @@ class ChessStyleAnalyzer:
             style_code = np.argmax(pred)
             style = self.label_encoder.inverse_transform([style_code])[0]
 
-            # Obtener recomendaciones
-            eco, name = random.choice(self.opening_mapping[style])
             return {
                 "status": "success",
                 "style": self.style_spanish_mapping[style],
-                "opening": {
-                    "eco": eco,
-                    "name": name
-                }
             }
 
         except Exception as e:
