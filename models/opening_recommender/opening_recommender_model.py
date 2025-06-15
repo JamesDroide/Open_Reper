@@ -311,10 +311,28 @@ class OpeningRecommender:
                 return f"Estilo '{player_style}' no válido. Opciones: {list(self.style_spanish_mapping.values())}"
 
             # Procesar PGN
-            pgn = io.StringIO(pgn_text)
-            game = chess.pgn.read_game(pgn)
-            if not game:
-                return "Error: No se pudo leer el PGN"
+            if not pgn_text or not isinstance(pgn_text, str) or pgn_text.isspace():
+                return {
+                    "status": "error",
+                    "message": "No se ha enviado un PGN válido"
+                }
+                
+            try:
+                game = chess.pgn.read_game(io.StringIO(pgn_text))
+                if not game or not game.mainline_moves():
+                    raise ValueError("Formato PGN inválido")
+            except:
+                return {
+                    "status": "error",
+                    "message": "No se ha enviado un PGN válido"
+                }
+                
+            move_count = sum(1 for _ in game.mainline_moves())
+            if move_count < 60:
+                return {
+                    "status": "error",
+                    "message": "El PGN enviado debe contener un mínimo de 30 movimientos"
+                }
 
             chess_color = chess.WHITE if color.lower() == 'white' else chess.BLACK
 
