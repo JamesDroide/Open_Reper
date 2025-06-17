@@ -1,11 +1,12 @@
 import reflex as rx
-from reflex.components.core.breakpoints import Breakpoints
 from open_reper.model_loader import analyzer, recommender
 import asyncio
 import chess
 import chess.svg
 import urllib.parse
 from typing import Dict, List, Tuple, TypedDict
+
+from open_reper.variables import BLUE_DARK, FONT_FAMILY, ORANGE, WHITE
 
 class RecommendedOpening(TypedDict):
     eco: str
@@ -691,85 +692,99 @@ class State(rx.State):
     def move_pairs(self) -> List[int]:
         return list(range((len(self.game_moves) + 1) // 2))
 
+@rx.page(route="/")
 def index():
     return rx.box(
-        rx.flex(
-            rx.box(
-                rx.image(
+        rx.box(
+            rx.flex(
+                rx.link(
+                    rx.image(
                     src="logo_open_reper.png",
-                    width="auto",
-                    height="150px",
-                    margin_bottom=4,
+                    width="200px",
+                    height="auto",
+                    ),
+                    href="/",
+                    _hover={"cursor: pointer"},
                 ),
-                rx.vstack(
-                    rx.text("Domina el juego desde", 
-                            font_size=["2em", "3em"],
-                            color="white", 
-                            font_weight="bold"),
-                    rx.text("el primer movimiento", 
-                            font_size=["2em", "3em"], 
-                            color="white", 
-                            font_weight="bold"),
-                    rx.text(
-                        "Nuestra app analiza tu estilo de juego, nivel para recomendarte aperturas hechas a tu medida. Con una base de datos de más de 20,000 partidas profesionales, aprenderás no solo a elegir la mejor primera jugada, sino a entender la estrategia detrás de cada movimiento.",
-                        font_size=["1em", "1.2em"],
-                        color="white",
-                        margin_top=4,
-                    ),
-                    rx.text(
-                        "¿Listo para dejar de improvisar y convertir tus aperturas en victorias?",
-                        font_size=["1em", "1.2em"],
-                        color="white",
-                        margin_top=2,
-                    ),
-                    rx.link(
-                        rx.button(
-                            "USAR LA APP",
-                            bg="#F24100",
-                            color="white",
-                            border_radius="30px",
-                            padding_x=8,
-                            padding_y=4,
-                            margin_top=6,
+                rx.flex(
+                    rx.vstack(
+                        rx.text(
+                            "Domina el juego desde el primer movimiento",
+                            font_size="2.8em",
+                            color=WHITE,
                             font_weight="bold",
-                            align_self="center",
-                            cursor="pointer"
+                            text_align="left",
+                            line_height="1.2",
                         ),
-                        href="/send-game"
+                        rx.text(
+                            "Nuestra app analiza tu estilo de juego, nivel para recomendarte aperturas hechas a tu medida. Con una base de datos de más de 20,000 partidas profesionales, aprenderás no solo a elegir la mejor primera jugada, sino a entender la estrategia detrás de cada movimiento.",
+                            font_size="1.3em",
+                            color=WHITE,
+                            max_width="600px",
+                            text_align="justify",
+                        ),
+                        rx.text(
+                            "¿Listo para dejar de improvisar y convertir tus aperturas en victorias?",
+                            font_size="1.3em",
+                            color=WHITE,
+                            max_width="600px",
+                            text_align="justify",
+                        ),
+                        rx.link(
+                            rx.button(
+                                "USAR LA APP",
+                                bg=ORANGE,
+                                color=WHITE,
+                                border_radius="30px",
+                                padding="15px 30px",
+                                font_weight="bold",
+                                cursor="pointer",
+                                width="100%",
+                                max_width="300px",
+                                height="50px",
+                                margin_y=4,
+                                _hover={"bg": "#e03d00", "transform": "translateY(-2px)"},
+                                font_size="1.5em",
+                            ),
+                            href="/send-game",
+                            margin_top="20px"
+                        ),
+                        align_items="center",
+                        width="100%",
+                        max_width="600px",
                     ),
-                    spacing="4",
-                    align_items="flex-start",
+                    
+                    rx.image(
+                        src="pieces.png",
+                        width="50%",
+                        max_width="800px",
+                        max_height="700px",
+                        object_fit="contain",
+                        margin_left="50px",
+                    ),
                     width="100%",
+                    max_width="1200px",
+                    margin_x="auto",
+                    padding_x=4,
                 ),
-                width="50%",
-                display=Breakpoints(
-                mobile="none",
-                desktop="block"
+                width="100%",
+                max_width="1200px",
+                margin_x="auto",
+                flex_direction="column",
             ),
-            ),
-            rx.image(
-                src="pieces.png",
-                width=["100%", "50%"],
-                max_width="700px",
-                max_height="600px",
-                object_fit="contain",
-                margin_left=["0", "8"],
-                display=Breakpoints(
-                mobile="block",
-                desktop="block"
-            ),
-            ),
-            direction=Breakpoints(
-                mobile="column",
-                desktop="row"
-            ),
-            align_items="center",
-            justify_content="space-between",
-            padding_x=8,
-            padding_y=8,
-            background_color="#2A5C9A",
-            height="100%",
+            background_color=BLUE_DARK,
+            width="100%",
         ),
+        style={
+            "position": "fixed",
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "bottom": 0,
+            "overflow": "auto",
+            "background": BLUE_DARK,
+            "font-family" : FONT_FAMILY
+        }
     )
 
 @rx.page(route="/send-game")
@@ -1031,7 +1046,7 @@ def recommended_opening():
         padding="2em"
     )
 
-app = rx.App()
-app.add_page(index)
-app.add_page(send_game)
-app.add_page(recommended_opening)
+app = rx.App(stylesheets=["https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap"])
+app.add_page(index, route = "/")
+app.add_page(send_game, route = "/send-game")
+app.add_page(recommended_opening, route = "/opening-recommended")
