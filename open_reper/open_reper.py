@@ -859,11 +859,14 @@ def send_game():
         rx.box(
             rx.flex(
                 rx.flex(
-                    rx.image(
-                        src="/logo_open_reper.png",
-                        width="200px",
-                        height="auto",
-                        border_radius="8px"
+                    rx.link(
+                        rx.image(
+                            src="/logo_open_reper.png",
+                            width="200px",
+                            height="auto",
+                        ),
+                        href="/",
+                        _hover={"cursor: pointer"},
                     ),
                     rx.vstack(
                         rx.heading("Aprende y mejora tus aperturas", font_size="2em", color="white"),
