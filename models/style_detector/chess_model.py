@@ -6,8 +6,12 @@ import joblib
 from collections import Counter
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from tensorflow.keras.models import load_model
+import time
 
 class ChessStyleAnalyzer:
+    
+    user_count = 0
+    
     def __init__(self):
 
         # Mapeos de estilos
@@ -43,7 +47,7 @@ class ChessStyleAnalyzer:
             'combinative' : 'Combinativo',
             'universal' : 'Universal'
         }
-
+    
     def _extract_game_features(self, game, color):
       """Extrae características avanzadas de una partida de ajedrez"""
       MOVES_TO_ANALYZE = 30
@@ -287,6 +291,9 @@ class ChessStyleAnalyzer:
     def detect_style(self, pgn_text, color):
         """Realiza una recomendación de apertura con validaciones mejoradas"""
         try:
+            ChessStyleAnalyzer.user_count += 1
+            print(f"Usuario {ChessStyleAnalyzer.user_count} detectando estilo...")
+            start_time = time.time()            
             # --- Validación 1: Input vacío o texto no válido ---
             if not pgn_text or not isinstance(pgn_text, str) or pgn_text.isspace():
                 return {
@@ -326,7 +333,9 @@ class ChessStyleAnalyzer:
             pred = self.model.predict(features_scaled, verbose=0)
             style_code = np.argmax(pred)
             style = self.label_encoder.inverse_transform([style_code])[0]
-
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            print(f"Tiempo de ejecución para detectar estilo: {elapsed_time:.2f} segundos")
             return {
                 "status": "success",
                 "style": self.style_spanish_mapping[style],

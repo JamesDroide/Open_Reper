@@ -1,11 +1,10 @@
 import chess.pgn
 import io
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Dense, Dropout
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import load_model
 import joblib
 from collections import  Counter
+import time
 
 class OpeningRecommender:
     def __init__(self):
@@ -307,6 +306,7 @@ class OpeningRecommender:
         """Recomienda aperturas basadas en un PGN de partida y estilo de jugador"""
 
         try:
+            start_time = time.time()
             if player_style and player_style not in self.style_spanish_mapping.values():
                 return f"Estilo '{player_style}' no válido. Opciones: {list(self.style_spanish_mapping.values())}"
 
@@ -357,6 +357,9 @@ class OpeningRecommender:
                 })
 
             recommendations.sort(key=lambda x: (-x['probabilidad'], x['apertura']))
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            print(f"Tiempo de ejecución para recomendar una apertura: {elapsed_time:.2f} segundos")
             return recommendations[:3]
 
         except Exception as e:
