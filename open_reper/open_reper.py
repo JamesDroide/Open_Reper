@@ -1,11 +1,13 @@
 import reflex as rx
-from reflex.components.core.breakpoints import Breakpoints
 from open_reper.model_loader import analyzer, recommender
 import asyncio
 import chess
 import chess.svg
 import urllib.parse
 from typing import Dict, List, Tuple, TypedDict
+import io
+
+from open_reper.variables import BLUE_DARK, FONT_FAMILY, ORANGE, WHITE
 
 class RecommendedOpening(TypedDict):
     eco: str
@@ -15,6 +17,7 @@ class RecommendedOpening(TypedDict):
     plans: List[str]
 
 class State(rx.State):
+    # Variables para el análisis y recomendación
     pgn_text: str = ""
     recommendation: dict = {}
     recommended_opening: RecommendedOpening = {
@@ -29,7 +32,6 @@ class State(rx.State):
     current_move: int = 0
     board_svg: str = ""
     game_moves: List[str] = []
-    rating: int = 0
     variant_selected: str = ""
     description: str = ""
     plans: List[str] = []
@@ -65,24 +67,38 @@ class State(rx.State):
     }
     
     openings = {
-            'Catalana': 'E00',
-            'Inglesa': 'A10',
-            'Londres': 'D02',
-            'Escocesa': 'C44',
-            'Gambito_de_Rey': 'C39',
-            'Gambito_Danes': 'C21',
-            'Italiana': 'C50',
-            'Española': 'C60',
-            'Gambito_de_Dama': 'D00'
-        }
-
+        'Catalana': 'E00',
+        'Inglesa': 'A10',
+        'Londres': 'D02',
+        'Escocesa': 'C44',
+        'Gambito_de_Rey': 'C39',
+        'Gambito_Danes': 'C21',
+        'Italiana': 'C50',
+        'Española': 'C60',
+        'Gambito_de_Dama': 'D00'
+    }
+    
+    # Variables para el tablero interactivo
+    fen: str = chess.Board().fen()
+    position: Dict[str, str] = {}
+    selected_square: str = ""
+    move_from: str = ""
+    move_to: str = ""
+    legal_moves: List[str] = []
+    turn: str = "white"
+    move_history: List[str] = []
+    interactive_current_move: int = 0
+    
+    def on_load(self):
+        """Carga el estado al iniciar la página"""
+        self.reset_board()
+    
     @rx.event
     async def get_recommendation(self):
         self.is_loading = True
         self.error = ""
         color = self.selected_color
         try:
-            # Análisis de estilo
             result = await asyncio.get_event_loop().run_in_executor(
                 None, 
                 lambda: analyzer.detect_style(self.pgn_text, color)
@@ -98,18 +114,15 @@ class State(rx.State):
                 "description": self.style_descriptions.get(style, ""),
             }
 
-            # Obtención de recomendación de apertura
             result_opening = await asyncio.get_event_loop().run_in_executor(
                 None,
                 lambda: recommender.recommend_for_pgn(self.pgn_text, color, style.lower())
             )
 
-            # Validación de respuesta del recomendador
             if not isinstance(result_opening, list) or len(result_opening) == 0:
                 self.error = "No se encontraron recomendaciones válidas"
                 return
 
-            # Extracción de datos de la apertura
             recommended_opening = result_opening[0]['apertura']
             eco_code = self.openings.get(recommended_opening)
             
@@ -117,7 +130,6 @@ class State(rx.State):
                 self.error = f"No se encontró código ECO para {recommended_opening}"
                 return
 
-            # Actualización de estado
             self.recommendation['opening'] = f"Apertura {recommended_opening.replace('_', ' ')}"
             self.set_recommended_opening(recommended_opening, style)
             self.game_moves = self._get_model_games(eco_code)
@@ -130,7 +142,99 @@ class State(rx.State):
             self.error = f"Error procesando PGN: {str(e)}"
         finally:
             self.is_loading = False
+    
+    def update_position(self):
+        """Actualiza la posición de las piezas desde el FEN."""
+        board = chess.Board(self.fen)
+        self.position = {}
+        for square in chess.SQUARES:
+            piece = board.piece_at(square)
+            if piece:
+                square_name = chess.square_name(square)
+                self.position[square_name] = piece.symbol()
+        self.turn = "white" if board.turn == chess.WHITE else "black"
+    
+    def select_square(self, square: str):
+        if not self.move_from:
+            self.move_from = square
+            self.selected_square = square
+            board = chess.Board(self.fen)
+            self.legal_moves = [
+                chess.square_name(move.to_square) 
+                for move in board.legal_moves 
+                if chess.square_name(move.from_square) == square
+            ]
+        else:
+            self.move_to = square
+            self.make_move()
+    
+    def make_move(self):
+        if self.move_from and self.move_to:
+            move_str = f"{self.move_from}{self.move_to}"
+            try:
+                board = chess.Board(self.fen)
+                move = chess.Move.from_uci(move_str)
+                if move in board.legal_moves:
+                    board.push(move)
+                    self.fen = board.fen()
+                    self.move_history.append(move_str)
+                    self.update_position()
+                    self.generate_pgn_from_board()
+            except Exception as e:
+                print(f"Error making move: {e}")
+            finally:
+                self.reset_selection()
 
+    def reset_selection(self):
+        self.move_from = ""
+        self.move_to = ""
+        self.selected_square = ""
+        self.legal_moves = []
+    
+    def reset_board(self):
+        """Reinicia el tablero a la posición inicial."""
+        self.fen = chess.Board().fen()
+        self.move_history = []
+        self.update_position()
+        self.reset_selection()
+        self.pgn_text = ""
+        self.recommendation = {}
+    
+    def generate_pgn_from_board(self):
+        """Genera el PGN acumulativo a partir del historial de movimientos."""
+        try:
+            game = chess.pgn.Game()
+            board = chess.Board()
+            node = game
+            
+            for move_uci in self.move_history:
+                move = chess.Move.from_uci(move_uci)
+                board.push(move)
+                node = node.add_variation(move)
+            
+            exporter = chess.pgn.StringExporter(headers=False, variations=False, comments=False)
+            pgn_str = game.accept(exporter).strip()
+            
+            self.pgn_text = pgn_str
+        except Exception as e:
+            print(f"Error generating PGN: {e}")
+
+    def load_pgn_to_board(self):
+        """Carga el PGN desde el área de texto al tablero interactivo."""
+        try:
+            game = chess.pgn.read_game(io.StringIO(self.pgn_text))
+            if game:
+                board = game.board()
+                self.move_history = []
+                for move in game.mainline_moves():
+                    board.push(move)
+                    self.move_history.append(move.uci())
+                self.fen = board.fen()
+                self.update_position()
+                self.reset_selection()
+        except Exception as e:
+            print(f"Error loading PGN: {e}")
+    
     def set_recommended_opening(self, opening: str, style: str):
         self.recommended_opening = {
             "eco": self.openings[opening],
@@ -139,6 +243,8 @@ class State(rx.State):
             "description": self._get_opening_description(self.openings[opening]),
             "plans": self._get_plans(self.openings[opening])
         }
+        self.white_player = self._get_white_player(self.openings[opening])
+        self.black_player = self._get_black_player(self.openings[opening])
 
     def _get_opening_name(self, eco_code: str) -> str:
         """Obtiene el nombre de la apertura por código ECO"""
@@ -162,6 +268,34 @@ class State(rx.State):
             'D00': "El Gambito de Dama combina desarrollo con presión en el centro. La variante 3.c4 crea dinámicas posiciones con posibilidades para ambos bandos."
         }
         return descriptions.get(eco_code, "Descripción no disponible")
+
+    def _get_white_player(self, eco_code: str) -> str:
+        white_players = {
+            'E00': "Vladimir Kramnik",
+            'A10': "Anatoly Karpov",
+            'D02': "Tigran Petrosian",
+            'C39': "Alexander Alekhine",
+            'C44': "Garry Kasparov",
+            'C21': "Alexander Alekhine",
+            'C50': "Emanuel Lasker",
+            'C60': "Boris Spassky",
+            'D00': "Magnus Carlsen"
+        }
+        return white_players.get(eco_code, [])
+    
+    def _get_black_player(self, eco_code: str) -> str:
+        black_players = {
+            'E00': "Magnus Carlsen",
+            'A10': "Oleg Romanishin",
+            'D02': "Alexander Chistiakov",
+            'C39': "Stefan Levitsky",
+            'C44': "Nigel Short",
+            'C21': "Arturo Pomar",
+            'C50': "Wilhelm Steinitz",
+            'C60': "Svetozar Gligoric",
+            'D00': "Ding Liren"
+        }
+        return black_players.get(eco_code, [])
 
     def _get_plans(self, eco_code: str) -> List[str]:
         """Planes estratégicos por apertura"""
@@ -214,7 +348,6 @@ class State(rx.State):
         }
         return plans.get(eco_code, [])
 
-    def _get_opening_moves(self, eco_code: str) -> List[str]:
         """Secuencia de movimientos por apertura"""
         moves = {
             'E00': ["d4", "nf6", "c4", "e6", "g3"],
@@ -654,21 +787,19 @@ class State(rx.State):
             for move in moves:
                 board.push_san(move)
             
-            # Configuración mejorada del SVG
             svg_content = chess.svg.board(
                 board=board,
                 size=400,
                 coordinates=True,
-                flipped=False,  # Mostrar desde perspectiva de blancas
-                lastmove=board.peek() if board.move_stack else None,  # Resaltar último movimiento
-                check=board.king(board.turn) if board.is_check() else None  # Resaltar jaque
+                flipped=False,
+                lastmove=board.peek() if board.move_stack else None,
+                check=board.king(board.turn) if board.is_check() else None
             )
             encoded_svg = urllib.parse.quote(svg_content)
             return f"data:image/svg+xml;utf8,{encoded_svg}"
         except Exception as e:
             print(f"Error rendering board: {e}")
             return ""
-
 
     def next_move(self):
         if self.current_move < len(self.game_moves)-1:
@@ -684,354 +815,774 @@ class State(rx.State):
         self.current_move = 0
         self.board_svg = self._render_board([self.game_moves[0]])
 
-    def rate_recommendation(self, stars: int):
-        self.rating = stars
-
     @rx.var
     def move_pairs(self) -> List[int]:
         return list(range((len(self.game_moves) + 1) // 2))
 
+    def next_move_second_board(self):
+        """Avanza al siguiente movimiento en la reproducción"""
+        if self.interactive_current_move < len(self.move_history) - 1:
+            self.interactive_current_move += 1
+            self.go_to_move(self.interactive_current_move)
+    
+    def prev_move_second_board(self):
+        """Retrocede al movimiento anterior en la reproducción"""
+        if self.interactive_current_move > 0:
+            self.interactive_current_move -= 1
+            self.go_to_move(self.interactive_current_move)
+    
+    def reset_game_second_board(self):
+        """Reinicia la reproducción al inicio"""
+        self.interactive_current_move = 0
+        if self.move_history:
+            self.go_to_move(0)
+    
+    def go_to_move(self, move_index: int):
+        """Va a un movimiento específico en el historial"""
+        if 0 <= move_index < len(self.move_history):
+            self.interactive_current_move = move_index
+            board = chess.Board()
+            for i in range(move_index + 1):
+                move = chess.Move.from_uci(self.move_history[i])
+                board.push(move)
+            self.fen = board.fen()
+            self.update_position()
+    
+    def go_to_last_move(self):
+        """Ir al último movimiento"""
+        if self.move_history:
+            self.interactive_current_move = len(self.move_history) - 1
+            self.go_to_move(self.interactive_current_move)
+    
+    @rx.var
+    def format_move_list(self) -> List[Tuple[int, str, str]]:
+        """Formatea los movimientos en notación algebraica (SAN)"""
+        moves = []
+        board = chess.Board()
+        san_moves = []
+        
+        for uci_move in self.move_history:
+            move = board.parse_uci(uci_move)
+            san_moves.append(board.san(move))
+            board.push(move)
+        
+        for i in range(0, len(san_moves), 2):
+            white_move = san_moves[i] if i < len(san_moves) else ""
+            black_move = san_moves[i+1] if i+1 < len(san_moves) else ""
+            moves.append((i//2 + 1, white_move, black_move))
+        
+        return moves
+
+@rx.page(route="/")
 def index():
     return rx.box(
-        rx.flex(
-            rx.box(
-                rx.image(
+        rx.box(
+            rx.flex(
+                rx.link(
+                    rx.image(
                     src="logo_open_reper.png",
-                    width="auto",
-                    height="150px",
-                    margin_bottom=4,
+                    width="200px",
+                    height="auto",
+                    ),
+                    href="/",
+                    _hover={"cursor: pointer"},
                 ),
-                rx.vstack(
-                    rx.text("Domina el juego desde", 
-                            font_size=["2em", "3em"],
-                            color="white", 
-                            font_weight="bold"),
-                    rx.text("el primer movimiento", 
-                            font_size=["2em", "3em"], 
-                            color="white", 
-                            font_weight="bold"),
-                    rx.text(
-                        "Nuestra app analiza tu estilo de juego, nivel para recomendarte aperturas hechas a tu medida. Con una base de datos de más de 20,000 partidas profesionales, aprenderás no solo a elegir la mejor primera jugada, sino a entender la estrategia detrás de cada movimiento.",
-                        font_size=["1em", "1.2em"],
-                        color="white",
-                        margin_top=4,
-                    ),
-                    rx.text(
-                        "¿Listo para dejar de improvisar y convertir tus aperturas en victorias?",
-                        font_size=["1em", "1.2em"],
-                        color="white",
-                        margin_top=2,
-                    ),
-                    rx.link(
-                        rx.button(
-                            "USAR LA APP",
-                            bg="#F24100",
-                            color="white",
-                            border_radius="30px",
-                            padding_x=8,
-                            padding_y=4,
-                            margin_top=6,
+                rx.flex(
+                    rx.vstack(
+                        rx.text(
+                            "Domina el juego desde el primer movimiento",
+                            font_size="2.8em",
+                            color=WHITE,
                             font_weight="bold",
-                            align_self="center",
-                            cursor="pointer"
+                            text_align="left",
+                            line_height="1.2",
                         ),
-                        href="/send-game"
+                        rx.text(
+                            "Nuestra app analiza tu estilo de juego, nivel para recomendarte aperturas hechas a tu medida. Con una base de datos de más de 20,000 partidas profesionales, aprenderás no solo a elegir la mejor primera jugada, sino a entender la estrategia detrás de cada movimiento.",
+                            font_size="1.3em",
+                            color=WHITE,
+                            max_width="600px",
+                            text_align="justify",
+                        ),
+                        rx.text(
+                            "¿Listo para dejar de improvisar y convertir tus aperturas en victorias?",
+                            font_size="1.3em",
+                            color=WHITE,
+                            max_width="600px",
+                            text_align="justify",
+                        ),
+                        rx.link(
+                            rx.button(
+                                "USAR LA APP",
+                                bg=ORANGE,
+                                color=WHITE,
+                                border_radius="30px",
+                                padding="15px 30px",
+                                font_weight="bold",
+                                cursor="pointer",
+                                width="100%",
+                                max_width="300px",
+                                height="50px",
+                                margin_y=4,
+                                _hover={"bg": "#e03d00", "transform": "translateY(-2px)"},
+                                font_size="1.5em",
+                            ),
+                            href="/send-game",
+                            margin_top="20px"
+                        ),
+                        align_items="center",
+                        width="100%",
+                        max_width="600px",
                     ),
-                    spacing="4",
-                    align_items="flex-start",
+                    
+                    rx.image(
+                        src="pieces.png",
+                        width="50%",
+                        max_width="800px",
+                        max_height="700px",
+                        object_fit="contain",
+                        margin_left="50px",
+                    ),
                     width="100%",
+                    max_width="1200px",
+                    margin_x="auto",
+                    padding_x=4,
                 ),
-                width="50%",
-                display=Breakpoints(
-                mobile="none",
-                desktop="block"
+                width="100%",
+                max_width="1200px",
+                margin_x="auto",
+                flex_direction="column",
             ),
-            ),
-            rx.image(
-                src="pieces.png",
-                width=["100%", "50%"],
-                max_width="700px",
-                max_height="600px",
-                object_fit="contain",
-                margin_left=["0", "8"],
-                display=Breakpoints(
-                mobile="block",
-                desktop="block"
-            ),
-            ),
-            direction=Breakpoints(
-                mobile="column",
-                desktop="row"
-            ),
-            align_items="center",
-            justify_content="space-between",
-            padding_x=8,
-            padding_y=8,
-            background_color="#2A5C9A",
-            height="100%",
+            background_color=BLUE_DARK,
+            width="100%",
         ),
+        style={
+            "position": "fixed",
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "bottom": 0,
+            "overflow": "auto",
+            "background": BLUE_DARK,
+            "font-family" : FONT_FAMILY
+        }
     )
 
-@rx.page(route="/send-game")
-def send_game():
-    return rx.center(
-        rx.vstack(
-            rx.heading("Recomendador de Aperturas", font_size="2em", color="white"),
-            rx.heading("Envía tu partida PGN", font_size="1.5em", color="white"),
-            rx.text_area(
-                placeholder="Pega tu PGN aquí...",
-                on_change=State.set_pgn_text,
-                width="400px",
-                height="200px",
-                border="1px solid #808080",
+def moves_table():
+    return rx.vstack(
+            rx.heading("Movimientos de la Partida", color="white", font_size="1.5em"),
+            rx.table.root(
+                rx.table.header(
+                    rx.table.row(
+                        rx.table.column_header_cell("#"),
+                        rx.table.column_header_cell("Blancas"),
+                        rx.table.column_header_cell("Negras"),
+                    )
+                ),
+                rx.table.body(
+                    rx.foreach(
+                        State.format_move_list,
+                        lambda move: rx.table.row(
+                            rx.table.cell(move[0]),
+                            rx.table.cell(move[1]),
+                            rx.table.cell(move[2]),
+                        )
+                    )
+                ),
+                margin_top="1em",
+                bg="#1E3A5F",
                 padding="1em",
-                color="black",
-                bg="white"
+                border_radius="8px",
+                width="100%",
+                height="490px",
+                overflow_y="auto",
             ),
-            rx.heading("Selecciona tu color:", font_size="1.2em", color="white"),
             rx.hstack(
-                rx.image(
-                    src="/white-pawn.png",
-                    width="64px",
-                    height="64px",
-                    border=rx.cond(
-                        State.selected_color == "white",
-                        "3px solid #F24100",
-                        "3px solid transparent"
-                    ),
-                    border_radius="8px",
-                    on_click=lambda: State.set_selected_color("white"),
-                    cursor="pointer",
-                    transition="transform 0.2s",
-                    _hover={"transform": "scale(1.1) rotate(-5deg)"},
-                    _active={"transform": "scale(0.95) rotate(5deg)"}
+                rx.button(
+                    "⏮️",
+                    on_click=State.reset_game_second_board,
+                    bg=BLUE_DARK,
+                    color=WHITE,
+                    _hover={"bg": "#152942"},
+                    title="Reiniciar reproducción",
+                    font_size="2em",
+                    margin_right="0.5em",
+                    padding="1em 10px"
                 ),
-                rx.image(
-                    src="/black-pawn.png",
-                    width="64px",
-                    height="64px",
-                    border=rx.cond(
-                        State.selected_color == "black",
-                        "3px solid #F24100",
-                        "3px solid transparent"
-                    ),
-                    border_radius="8px",
-                    on_click=lambda: State.set_selected_color("black"),
-                    cursor="pointer",
-                    transition="transform 0.2s",
-                    _hover={"transform": "scale(1.1) rotate(-5deg)"},
-                    _active={"transform": "scale(0.95) rotate(5deg)"}
+                rx.button(
+                    "◀️",
+                    on_click=State.prev_move_second_board,
+                    bg=BLUE_DARK,
+                    color=WHITE,
+                    _hover={"bg": "#152942"},
+                    is_disabled=State.interactive_current_move <= 0,
+                    title="Movimiento anterior",
+                    font_size="2em",
+                    margin_right="0.5em",
+                    padding="1em 10px"
                 ),
-                spacing="4",
-                margin_top="2em",
+                rx.button(
+                    "▶️",
+                    on_click=State.next_move_second_board,
+                    bg=BLUE_DARK,
+                    color=WHITE,
+                    _hover={"bg": "#152942"},
+                    is_disabled=State.interactive_current_move >= State.format_move_list.length()-1,
+                    title="Siguiente movimiento",
+                    font_size="2em",
+                    margin_right="0.5em",
+                    padding="1em 10px"
+                ),
+                rx.button(
+                    "⏩",
+                    on_click=State.go_to_last_move,
+                    bg=BLUE_DARK,
+                    color=WHITE,
+                    _hover={"bg": "#152942"},
+                    is_disabled=State.interactive_current_move >= State.format_move_list.length() - 1,
+                    title="Ir al final",
+                    font_size="2em",
+                    margin_right="0.5em",
+                    padding="1em 10px"
+                ),
+                spacing="2",
+                margin_top="1em",
                 justify_content="center"
             ),
-            rx.cond(
-                State.selected_color == "white",
-                rx.badge("Blancas seleccionadas", color_scheme="orange"),
-                rx.badge("Negras seleccionadas", color_scheme="orange")
+            align_items="center",
+            width="100%",
+        )
+
+@rx.page(route="/send-game", on_load=State.on_load)
+def send_game():
+    return rx.box(
+        rx.box(
+            rx.flex(
+                rx.flex(
+                    rx.link(
+                        rx.image(
+                            src="/logo_open_reper.png",
+                            width="200px",
+                            height="auto",
+                        ),
+                        href="/",
+                        _hover={"cursor: pointer"},
+                    ),
+                    rx.vstack(
+                        rx.heading("Aprende y mejora tus aperturas", font_size="2em", color="white"),
+                        rx.text("Analiza tus partidas y descubre nuevas estrategias", color="#d1e0e0"),
+                        spacing="1",
+                        align_items="center",
+                        flex_grow=1
+                    ),
+                    justify_content="space-between",
+                    align_items="center",
+                    width="100%",
+                    padding="1em",
+                    bg=BLUE_DARK
+                ),
+                rx.flex(
+                    rx.box(
+                        chess_board(),
+                        padding="1em",
+                        bg="#2a5c9a",
+                        border_radius="8px",
+                        box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
+                        margin_right="1em"
+                    ),
+                    rx.box(
+                        moves_table(),
+                        padding="1em",
+                        bg="#2a5c9a",
+                        border_radius="8px",
+                        box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
+                        margin_right="1em",
+                        min_width="350px"
+                    ),
+                    rx.box(
+                        rx.vstack(
+                            rx.heading("Envía tu partida PGN", font_size="1.5em", color="white"),
+                            rx.text_area(
+                                placeholder="Pega tu PGN aquí...",
+                                value=State.pgn_text,
+                                on_change=State.set_pgn_text,
+                                width="400px",
+                                height="200px",
+                                border="1px solid #808080",
+                                padding="1em",
+                                color="black",
+                                bg="white"
+                            ),
+                            rx.heading("Selecciona tu color:", font_size="1.2em", color="white"),
+                            rx.hstack(
+                                rx.image(
+                                    src="/white-pawn.png",
+                                    width="64px",
+                                    height="64px",
+                                    border=rx.cond(
+                                        State.selected_color == "white",
+                                        "3px solid #F24100",
+                                        "3px solid transparent"
+                                    ),
+                                    border_radius="8px",
+                                    on_click=lambda: State.set_selected_color("white"),
+                                    cursor="pointer",
+                                    transition="transform 0.2s",
+                                    _hover={"transform": "scale(1.1) rotate(-5deg)"},
+                                    _active={"transform": "scale(0.95) rotate(5deg)"}
+                                ),
+                                rx.image(
+                                    src="/black-pawn.png",
+                                    width="64px",
+                                    height="64px",
+                                    border=rx.cond(
+                                        State.selected_color == "black",
+                                        "3px solid #F24100",
+                                        "3px solid transparent"
+                                    ),
+                                    border_radius="8px",
+                                    on_click=lambda: State.set_selected_color("black"),
+                                    cursor="pointer",
+                                    transition="transform 0.2s",
+                                    _hover={"transform": "scale(1.1) rotate(-5deg)"},
+                                    _active={"transform": "scale(0.95) rotate(5deg)"}
+                                ),
+                                spacing="4",
+                                margin_top="2em",
+                                justify_content="center"
+                            ),
+                            rx.cond(
+                                State.selected_color == "white",
+                                rx.badge("Blancas seleccionadas", color_scheme="orange"),
+                                rx.badge("Negras seleccionadas", color_scheme="orange")
+                            ),
+                            rx.button(
+                                "Obtener Recomendación",
+                                on_click=State.get_recommendation,
+                                bg=ORANGE,
+                                color=WHITE,
+                                margin_top="1em",
+                                is_loading=State.is_loading,
+                                _hover={"bg": "#e03d00"},
+                                font_family=FONT_FAMILY
+                            ),
+                            rx.cond(
+                                State.error,
+                                rx.text(State.error, color="red", font_weight="bold"),
+                            ),
+                            spacing="4",
+                            align="center",
+                            width="100%",
+                            max_width="800px"
+                        ),
+                    ),
+                    width="100%",
+                    max_width="1200px",
+                    margin_x="auto",
+                    padding_x=4,
+                ),
+                width="100%",
+                max_width="1200px",
+                margin_x="auto",
+                flex_direction="column",
+            ),
+            background_color=BLUE_DARK,
+            width="100%",
+        ),
+        
+        rx.cond(
+            State.recommendation,
+            rx.center(
+                rx.box(
+                    rx.vstack(
+                        rx.heading("Recomendación de Apertura", font_size="1.8em", color="white"),
+                        rx.hstack(
+                            rx.vstack(
+                                rx.text(f"Estilo detectado:", font_weight="bold", color="white"),
+                                rx.text(State.recommendation['style'], color="white", font_size="1.2em"),
+                                rx.text(f"Descripción:", font_weight="bold", color="white", margin_top="1em"),
+                                rx.text(State.recommendation['description'], color="white"),
+                                align_items="flex-start",
+                                spacing="2",
+                                padding="1em",
+                                min_width="300px"
+                            ),
+                            rx.vstack(
+                                rx.text(f"Apertura recomendada:", font_weight="bold", color="white"),
+                                rx.text(State.recommendation['opening'], color="white", font_size="1.2em"),
+                                rx.link(
+                                    rx.button(
+                                        "Ver detalles de la apertura",
+                                        bg="#1E3A5F",
+                                        color="white",
+                                        border_radius="8px",
+                                        padding_x=4,
+                                        margin_top=8,
+                                        cursor="pointer"
+                                    ),
+                                    href="/opening-recommended"
+                                ),
+                                align_items="flex-start",
+                                spacing="2",
+                                padding="1em",
+                                min_width="300px"
+                            ),
+                            spacing="4",
+                            justify_content="center"
+                        ),
+                        bg="#1E3A5F",
+                        padding="2em",
+                        border_radius="8px",
+                        margin_top="2em",
+                        width="100%",
+                        max_width="800px",
+                        box_shadow="0 8px 16px rgba(0, 0, 0, 0.3)"
+                    ),
+                ),
+                width="100%",
+                padding="2em",
+                bg=BLUE_DARK
+            ),
+        ),
+        style={
+            "position": "fixed",
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "bottom": 0,
+            "overflow": "auto",
+            "background": BLUE_DARK,
+            "font-family": FONT_FAMILY
+        }
+    )
+
+def chess_square(square: str):
+    """Componente para una casilla del tablero con imágenes"""
+    is_selected = State.selected_square == square
+    is_legal_move = State.legal_moves.contains(square)
+    
+    is_light = (ord(square[0]) - ord('a') + int(square[1])) % 2 == 1
+    base_bg_color = "#f0d9b5" if is_light else "#b58863"
+    
+    bg_color = rx.cond(
+        is_selected,
+        "#bbcb2b",
+        rx.cond(is_legal_move, "#86a666", base_bg_color)
+    )
+    
+    piece_symbol = rx.cond(
+        State.position.contains(square),
+        State.position[square],
+        ""
+    )
+    
+    piece_component = rx.match(
+        piece_symbol,
+        *[(symbol, component) for symbol, component in PIECE_MAP.items()],
+        rx.box(width="50px", height="50px")
+    )
+    
+    return rx.box(
+        piece_component,
+        on_click=lambda: State.select_square(square),
+        width="60px",
+        height="60px",
+        display="flex",
+        justify_content="center",
+        align_items="center",
+        bg=bg_color,
+        border="1px solid #444",
+        _hover={"cursor": "pointer", "filter": "brightness(1.2)"}
+    )
+
+def chess_board():
+    """Componente completo del tablero de ajedrez"""
+    return rx.vstack(
+        rx.heading("Tablero de Ajedrez Interactivo", color="white", font_size="1.5em"),
+        rx.box(
+            rx.flex(
+                *[chess_square(f"{file}{rank}") for rank in range(8, 0, -1) for file in "abcdefgh"],
+                wrap="wrap",
+                width="480px",
+                height="480px",
+            ),
+            border="4px solid #333",
+            box_shadow="0 10px 25px rgba(0, 0, 0, 0.5)",
+            overflow="hidden",
+        ),
+        rx.hstack(
+            rx.button(
+                "Reiniciar Tablero",
+                on_click=State.reset_board,
+                bg="#FF5722",
+                color="white",
+                _hover={"bg": "#E64A19"}
             ),
             rx.button(
-                "Obtener Recomendación",
-                on_click=State.get_recommendation,
+                "Cargar PGN al Tablero",
+                on_click=State.load_pgn_to_board,
                 bg="#4CAF50",
                 color="white",
-                margin_top="1em",
-                is_loading=State.is_loading,
-                _hover={"bg": "#45a049"}
+                _hover={"bg": "#388E3C"},
+                margin_left="1em"
             ),
-            rx.cond(
-                State.error,
-                rx.text(State.error, color="red", font_weight="bold"),
-            ),
-            rx.cond(
-                State.recommendation,
-                rx.box(
-                    rx.text("Recomendación:", font_weight="bold", color="white"),
-                    rx.text(f"Estilo: {State.recommendation['style']}", color="white"),
-                    rx.text(f"Apertura: {State.recommendation['opening']}", color="white"),
-                    rx.text(f"Descripción: {State.recommendation['description']}", color="white"),
-                    rx.link(
-                        rx.button(
-                            "Ver detalles de la apertura",
-                            bg="#1E3A5F",
-                            color="white",
-                            border_radius="8px",
-                            padding_x=4,
-                            margin_top=4
-                        ),
-                        href="/opening-recommended"
-                    ),
-                    bg="#1E3A5F",
-                    padding="2em",
-                    border_radius="8px",
-                    margin_top="2em",
-                    width="100%",
-                    max_width="600px"
+            rx.text(
+                rx.cond(
+                    State.turn == "white",
+                    "Turno: Blancas",
+                    "Turno: Negras"
                 ),
+                color="white",
+                font_weight="bold",
+                margin_left="1em"
             ),
             spacing="4",
-            align="center",
-            width="100%",
-            max_width="800px"
+            margin_top="1em"
         ),
-        height="auto",
-        background_color="#2A5C9A",
-        padding="2em",
+        align="center",
     )
+
+PIECE_MAP = {
+    'r': rx.image(src="/game_pieces/bR.png", width="50px", height="50px"),
+    'n': rx.image(src="/game_pieces/bN.png", width="50px", height="50px"),
+    'b': rx.image(src="/game_pieces/bB.png", width="50px", height="50px"),
+    'q': rx.image(src="/game_pieces/bQ.png", width="50px", height="50px"),
+    'k': rx.image(src="/game_pieces/bK.png", width="50px", height="50px"),
+    'p': rx.image(src="/game_pieces/bP.png", width="50px", height="50px"),
+    'R': rx.image(src="/game_pieces/wR.png", width="50px", height="50px"),
+    'N': rx.image(src="/game_pieces/wN.png", width="50px", height="50px"),
+    'B': rx.image(src="/game_pieces/wB.png", width="50px", height="50px"),
+    'Q': rx.image(src="/game_pieces/wQ.png", width="50px", height="50px"),
+    'K': rx.image(src="/game_pieces/wK.png", width="50px", height="50px"),
+    'P': rx.image(src="/game_pieces/wP.png", width="50px", height="50px"),
+}
 
 @rx.page(route="/opening-recommended")
 def recommended_opening():
-    return rx.center(
-        rx.vstack(
-            rx.heading("Apertura Recomendada", font_size="2em", color="white"),
-            rx.heading(
-                State.recommended_opening['name'],
-                font_size="3em",
-                color="white",
-                margin_bottom="1em"
-            ),
-            
-            # Sección del tablero y controles
-            rx.vstack(
-                rx.image(
-                    src=State.board_svg,
-                    width=["300px", "400px"],
-                    height=["300px", "400px"],
-                    alt="Tablero de Ajedrez",
-                    margin_bottom="1em",
-                ),
-                rx.hstack(
-                    rx.button(
-                        "← Anterior",
-                        on_click=State.prev_move,
-                        bg="#1E3A5F",
-                        color="white",
-                        disabled=State.current_move <= 0,
+    return rx.box(
+        rx.box(
+            rx.flex(
+                rx.flex(
+                    rx.link(
+                        rx.image(
+                            src="/logo_open_reper.png",
+                            width="200px",
+                            height="auto",
+                        ),
+                        href="/",
+                        _hover={"cursor: pointer"},
                     ),
-                    rx.text(
-                        f"Movimiento {State.current_move + 1} de {State.game_moves.length()}",
-                        color="white",
-                        padding="0 1em"
+                    rx.vstack(
+                        rx.heading("Recomendación de apertura", font_size="2em", color="white"),
+                        rx.text("Mejora tu juego con recomendaciones basadas en tu estilo", color="#d1e0e0"),
+                        spacing="1",
+                        align_items="center",
+                        flex_grow=1
                     ),
-                    rx.button(
-                        "Siguiente →",
-                        on_click=State.next_move,
-                        bg="#1E3A5F",
-                        color="white",
-                        disabled=State.current_move >= State.game_moves.length() - 1,
-                    ),
-                    rx.button(
-                        "Reiniciar",
-                        on_click=State.reset_game,
-                        bg="#F24100",
-                        color="white",
-                        margin_left="1em"
-                    ),
-                    spacing="3",
-                    margin_bottom="1em",
-                    align="center"
-                ),
-                align_items="center",
-            ),
-            
-            # Visualización de la secuencia de movimientos
-            rx.box(
-                rx.heading("Secuencia de Movimientos", font_size="1.5em", color="white", margin_bottom="0.5em"),
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.table.column_header_cell("#", width="50px"),
-                            rx.table.column_header_cell("Blancas", width="150px"),
-                            rx.table.column_header_cell("Negras", width="150px"),
-                        )
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            State.move_pairs,
-                            lambda i: rx.table.row(
-                                rx.table.cell(f"{i+1}.", color="white"),
-                                rx.table.cell(
-                                    rx.cond(
-                                        i*2 < State.game_moves.length(),
-                                        State.game_moves[i*2],
-                                        ""
-                                    ),
-                                    color="white"
-                                ),
-                                rx.table.cell(
-                                    rx.cond(
-                                        i*2+1 < State.game_moves.length(),
-                                        State.game_moves[i*2+1],
-                                        ""
-                                    ),
-                                    color="white"
-                                )
-                            )
-                        )
-                    ),
-                    bg="#1E3A5F",
+                    justify_content="space-between",
+                    align_items="center",
+                    width="100%",
                     padding="1em",
-                    border_radius="8px",
-                    width="100%"
+                    bg=BLUE_DARK
                 ),
-                width="100%",
-                max_width="600px",
-                margin_bottom="2em"
-            ),
-            
-            # Información de la apertura
-            rx.box(
-                rx.heading("Sobre esta Apertura", font_size="1.5em", color="white", margin_bottom="0.5em"),
-                rx.text(
-                    State.recommended_opening['description'],
-                    color="white",
-                    font_size="1.1em",
-                    line_height="1.6",
-                    margin_bottom="1em"
-                ),
-                rx.heading("Planes Estratégicos", font_size="1.3em", color="white", margin_bottom="0.5em"),
-                rx.unordered_list(
-                    rx.foreach(
-                        State.recommended_opening["plans"],
-                        lambda plan: rx.list_item(
-                            plan,
+                rx.flex(
+                    rx.vstack(
+                        rx.heading("Apertura Recomendada", 
+                                font_size="2em", 
+                                color="white"),
+                        rx.heading(
+                            State.recommended_opening['name'],
+                            font_size="3.5em",
                             color="white",
-                            margin_bottom="0.5em",
-                            font_size="1.1em"
-                        )
+                            margin_bottom="1em"
+                        ),
+                        spacing="5",
+                        width="100%",
+                        max_width="1200px",
+                        padding_x="2em",
+                        align_items="center"
                     ),
-                    padding_left="1.5em"
+                    bg=BLUE_DARK,
+                    width="100%",
+                    padding_y="2em"
+                ),
+                rx.flex(
+                    rx.box(
+                        rx.vstack(
+                            rx.heading(f"{State.white_player} vs {State.black_player}", 
+                                font_size="1.5em", 
+                                color="white",
+                                margin_bottom="1em"),
+                            rx.image(
+                                src=State.board_svg,
+                                width="100%",
+                                max_width="600px",
+                                height="auto",
+                                margin_bottom="1em",
+                            ),
+                            rx.hstack(
+                                rx.button(
+                                    "← Anterior",
+                                    on_click=State.prev_move,
+                                    bg="#1E3A5F",
+                                    color="white",
+                                    disabled=State.current_move <= 0,
+                                ),
+                                rx.text(
+                                    f"Movimiento {State.current_move + 1} de {State.game_moves.length()}",
+                                    color="white",
+                                    padding="0 1em"
+                                ),
+                                rx.button(
+                                    "Siguiente →",
+                                    on_click=State.next_move,
+                                    bg="#1E3A5F",
+                                    color="white",
+                                    disabled=State.current_move >= State.game_moves.length() - 1,
+                                ),
+                                rx.button(
+                                    "Reiniciar",
+                                    on_click=State.reset_game,
+                                    bg="#F24100",
+                                    color="white",
+                                    margin_left="1em"
+                                ),
+                                spacing="3",
+                                align="center"
+                            ),
+                            align_items="center",
+                        ),
+                        padding="1em",
+                        bg="#2a5c9a",
+                        border_radius="8px",
+                        box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
+                        margin_right="1em"
+                    ),
+                    rx.box(
+                        rx.heading("Secuencia de Movimientos", 
+                                font_size="1.5em", 
+                                color="white",
+                                margin_bottom="1em"),
+                        rx.table.root(
+                            rx.table.header(
+                                rx.table.row(
+                                    rx.table.column_header_cell("#"),
+                                    rx.table.column_header_cell("Blancas"),
+                                    rx.table.column_header_cell("Negras"),
+                                )
+                            ),
+                            rx.table.body(
+                                rx.foreach(
+                                    State.move_pairs,
+                                    lambda i: rx.table.row(
+                                        rx.table.cell(f"{i+1}.", color="white"),
+                                        rx.table.cell(
+                                            rx.cond(
+                                                i*2 < State.game_moves.length(),
+                                                State.game_moves[i*2],
+                                                ""
+                                            ),
+                                            color="white"
+                                        ),
+                                        rx.table.cell(
+                                            rx.cond(
+                                                i*2+1 < State.game_moves.length(),
+                                                State.game_moves[i*2+1],
+                                                ""
+                                            ),
+                                            color="white"
+                                        )
+                                    )
+                                )
+                            ),
+                            bg="#1E3A5F",
+                            padding="1em",
+                            border_radius="8px",
+                            width="100%",
+                            height="650px",
+                            overflow_y="auto"
+                        ),
+                        padding="1em",
+                        bg="#2a5c9a",
+                        border_radius="8px",
+                        box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
+                        margin_right="1em",
+                        min_width="350px"
+                    ),
+                    width="100%",
+                    max_width="1200px",
+                    margin_x="auto",
+                    padding_x=4,
+                    justify_content="space-between",
+                ),
+                rx.box(
+                    rx.heading("Sobre esta Apertura", 
+                                font_size="1.5em", 
+                                color="white"),
+                    rx.text(
+                        State.recommended_opening['description'],
+                        color="white",
+                        line_height="2"
+                    ),
+                    padding="0.5em",
+                    bg="#2a5c9a",
+                    border_radius="8px",
+                    margin_top="2em"
+                ),
+                rx.box(
+                    rx.heading("Planes Estratégicos", 
+                                font_size="1.3em", 
+                                color="white"),
+                    rx.unordered_list(
+                        rx.foreach(
+                            State.recommended_opening["plans"],
+                            lambda plan: rx.list_item(
+                                plan,
+                                color="white",
+                                margin_bottom="0.5em"
+                            )
+                        ),
+                        padding_left="1.5em"
+                    ),
+                    padding="0.5em",
+                    bg="#2a5c9a",
+                    border_radius="8px"
                 ),
                 width="100%",
-                max_width="800px"
+                max_width="1200px",
+                margin_x="auto",
+                flex_direction="column",
             ),
-            
-            # Botones de acción
-            rx.vstack(
-                rx.button(
-                    "Analizar Otra Partida",
-                    bg="#F24100",
-                    color="white",
-                    padding="1em 2em",
-                    on_click=lambda: rx.redirect("/send-game"),
-                    margin_bottom="1em"
-                ),
-                
-                align_items="center"
-            ),
-            
-            spacing="4",
-            align_items="center",
-            width="100%",
-            padding="1em"
+            background_color=BLUE_DARK,
+            width="100%"
         ),
-        height="auto",
-        background_color="#2A5C9A",
-        padding="2em"
+        rx.center(
+            rx.button(
+                "Analizar Otra Partida",
+                bg="#F24100",
+                color="white",
+                padding="1em 4em",
+                on_click=lambda: rx.redirect("/send-game"),
+                border_radius="8px",
+                _hover={"bg": "#e03d00"}
+            ),
+            bg="#2A5C9A",
+            width="100%",
+            padding_y="2em"
+        ),
+        style={
+            "position": "fixed",
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "bottom": 0,
+            "overflow": "auto",
+            "background": BLUE_DARK,
+            "font-family": FONT_FAMILY
+        }
     )
 
-app = rx.App()
-app.add_page(index)
-app.add_page(send_game)
-app.add_page(recommended_opening)
+app = rx.App(stylesheets=["https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap"])
+app.add_page(index, route = "/")
+app.add_page(send_game, route = "/send-game")
+app.add_page(recommended_opening, route = "/opening-recommended")
