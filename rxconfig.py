@@ -8,6 +8,5 @@ class AppConfig(rx.Config):
         "tablet": "768px",
         "desktop": "1024px",
     }
-    backend_port: int = 8000
 
 config = AppConfig()

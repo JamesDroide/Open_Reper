@@ -1,5 +1,4 @@
-import pytest
-from open_reper.model_loader import analyzer, recommender
+from open_reper.BackEnd.model.model_loader import analyzer, recommender
 
 pgn = """
 [Event "Rated blitz game"]

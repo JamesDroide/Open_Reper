@@ -364,7 +364,7 @@ class OpeningRecommender:
 
     @classmethod
     def load_model(cls, filename="opening_recommender"):
-        """Carga el modelo y metadatos"""
+        """Carga el model y metadatos"""
         recommender = cls()
 
         # Cargar metadatos
@@ -375,7 +375,7 @@ class OpeningRecommender:
         recommender.opening_mapping = model_data['opening_mapping']
         recommender.style_spanish_mapping = model_data['style_spanish_mapping']
 
-        # Cargar modelo
+        # Cargar model
         recommender.model = load_model(f"{filename}.keras")
         print(f"Modelo cargado desde {filename}.keras")
         return recommender
