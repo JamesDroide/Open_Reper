@@ -959,9 +959,10 @@ def moves_table():
                         )
                     )
                 ),
-                variant="surface",
-                color_scheme="blue",
                 margin_top="1em",
+                bg="#1E3A5F",
+                padding="1em",
+                border_radius="8px",
                 width="100%",
                 height="490px",
                 overflow_y="auto",
