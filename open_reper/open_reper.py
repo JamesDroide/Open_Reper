@@ -5,73 +5,9 @@ import chess
 import chess.svg
 import urllib.parse
 from typing import Dict, List, Tuple, TypedDict
+import io
 
 from open_reper.variables import BLUE_DARK, FONT_FAMILY, ORANGE, WHITE
-
-class ChessState(rx.State):
-    """Estado para el tablero de ajedrez"""
-    fen: str = chess.Board().fen()
-    selected_square: str = ""
-    move_from: str = ""
-    move_to: str = ""
-    legal_moves: list[str] = []
-    turn: str = "white"
-    position: dict = {}
-    
-    def on_load(self):
-        self.reset_board()
-    
-    def update_position(self):
-        """Actualizar posición de piezas desde el FEN"""
-        board = chess.Board(self.fen)
-        self.position = {}
-        for square in chess.SQUARES:
-            piece = board.piece_at(square)
-            if piece:
-                square_name = chess.square_name(square)
-                self.position[square_name] = piece.symbol()
-    
-    def select_square(self, square: str):
-        if not self.move_from:
-            self.move_from = square
-            self.selected_square = square
-            board = chess.Board(self.fen)
-            self.legal_moves = [
-                move.uci()[-2:] 
-                for move in board.legal_moves 
-                if move.uci()[:2] == square
-            ]
-        else:
-            self.move_to = square
-            self.make_move()
-    
-    def make_move(self):
-        if self.move_from and self.move_to:
-            move_str = f"{self.move_from}{self.move_to}"
-            try:
-                board = chess.Board(self.fen)
-                move = chess.Move.from_uci(move_str)
-                if move in board.legal_moves:
-                    board.push(move)
-                    self.fen = board.fen()
-                    self.update_position()
-                    self.turn = "white" if board.turn == chess.WHITE else "black"
-            except Exception:
-                pass
-            finally:
-                self.reset_selection()
-    
-    def reset_selection(self):
-        self.move_from = ""
-        self.move_to = ""
-        self.selected_square = ""
-        self.legal_moves = []
-    
-    def reset_board(self):
-        self.fen = chess.Board().fen()
-        self.update_position()
-        self.turn = "white"
-        self.reset_selection()
 
 class RecommendedOpening(TypedDict):
     eco: str
@@ -81,9 +17,10 @@ class RecommendedOpening(TypedDict):
     plans: List[str]
 
 class State(rx.State):
+    # Variables para el análisis y recomendación
     pgn_text: str = ""
     recommendation: dict = {}
-    recommended_opening: RecommendedOpening = {
+    recommended_opening: Dict[str, str] = {
         "eco": "",
         "name": "",
         "style": "",
@@ -95,7 +32,6 @@ class State(rx.State):
     current_move: int = 0
     board_svg: str = ""
     game_moves: List[str] = []
-    rating: int = 0
     variant_selected: str = ""
     description: str = ""
     plans: List[str] = []
@@ -131,17 +67,31 @@ class State(rx.State):
     }
     
     openings = {
-            'Catalana': 'E00',
-            'Inglesa': 'A10',
-            'Londres': 'D02',
-            'Escocesa': 'C44',
-            'Gambito_de_Rey': 'C39',
-            'Gambito_Danes': 'C21',
-            'Italiana': 'C50',
-            'Española': 'C60',
-            'Gambito_de_Dama': 'D00'
-        }
-
+        'Catalana': 'E00',
+        'Inglesa': 'A10',
+        'Londres': 'D02',
+        'Escocesa': 'C44',
+        'Gambito_de_Rey': 'C39',
+        'Gambito_Danes': 'C21',
+        'Italiana': 'C50',
+        'Española': 'C60',
+        'Gambito_de_Dama': 'D00'
+    }
+    
+    # Variables para el tablero interactivo
+    fen: str = chess.Board().fen()
+    position: Dict[str, str] = {}
+    selected_square: str = ""
+    move_from: str = ""
+    move_to: str = ""
+    legal_moves: List[str] = []
+    turn: str = "white"
+    move_history: List[str] = []
+    
+    def on_load(self):
+        """Carga el estado al iniciar la página"""
+        self.reset_board()
+    
     @rx.event
     async def get_recommendation(self):
         self.is_loading = True
@@ -196,7 +146,99 @@ class State(rx.State):
             self.error = f"Error procesando PGN: {str(e)}"
         finally:
             self.is_loading = False
+    
+    def update_position(self):
+        """Actualiza la posición de las piezas desde el FEN."""
+        board = chess.Board(self.fen)
+        self.position = {}
+        for square in chess.SQUARES:
+            piece = board.piece_at(square)
+            if piece:
+                square_name = chess.square_name(square)
+                self.position[square_name] = piece.symbol()
+        self.turn = "white" if board.turn == chess.WHITE else "black"
+    
+    def select_square(self, square: str):
+        if not self.move_from:
+            self.move_from = square
+            self.selected_square = square
+            board = chess.Board(self.fen)
+            self.legal_moves = [
+                chess.square_name(move.to_square) 
+                for move in board.legal_moves 
+                if chess.square_name(move.from_square) == square
+            ]
+        else:
+            self.move_to = square
+            self.make_move()
+    
+    def make_move(self):
+        if self.move_from and self.move_to:
+            move_str = f"{self.move_from}{self.move_to}"
+            try:
+                board = chess.Board(self.fen)
+                move = chess.Move.from_uci(move_str)
+                if move in board.legal_moves:
+                    board.push(move)
+                    self.fen = board.fen()
+                    self.move_history.append(move_str)
+                    self.update_position()
+                    self.generate_pgn_from_board()
+            except Exception as e:
+                print(f"Error making move: {e}")
+            finally:
+                self.reset_selection()
 
+    def reset_selection(self):
+        self.move_from = ""
+        self.move_to = ""
+        self.selected_square = ""
+        self.legal_moves = []
+    
+    def reset_board(self):
+        """Reinicia el tablero a la posición inicial."""
+        self.fen = chess.Board().fen()
+        self.move_history = []
+        self.update_position()
+        self.reset_selection()
+        self.pgn_text = ""
+        self.recommendation = {}
+    
+    def generate_pgn_from_board(self):
+        """Genera el PGN acumulativo a partir del historial de movimientos."""
+        try:
+            game = chess.pgn.Game()
+            board = chess.Board()
+            node = game
+            
+            for move_uci in self.move_history:
+                move = chess.Move.from_uci(move_uci)
+                board.push(move)
+                node = node.add_variation(move)
+            
+            exporter = chess.pgn.StringExporter(headers=False, variations=False, comments=False)
+            pgn_str = game.accept(exporter).strip()
+            
+            self.pgn_text = pgn_str
+        except Exception as e:
+            print(f"Error generating PGN: {e}")
+
+    def load_pgn_to_board(self):
+        """Carga el PGN desde el área de texto al tablero interactivo."""
+        try:
+            game = chess.pgn.read_game(io.StringIO(self.pgn_text))
+            if game:
+                board = game.board()
+                self.move_history = []
+                for move in game.mainline_moves():
+                    board.push(move)
+                    self.move_history.append(move.uci())
+                self.fen = board.fen()
+                self.update_position()
+                self.reset_selection()
+        except Exception as e:
+            print(f"Error loading PGN: {e}")
+    
     def set_recommended_opening(self, opening: str, style: str):
         self.recommended_opening = {
             "eco": self.openings[opening],
@@ -280,7 +322,6 @@ class State(rx.State):
         }
         return plans.get(eco_code, [])
 
-    def _get_opening_moves(self, eco_code: str) -> List[str]:
         """Secuencia de movimientos por apertura"""
         moves = {
             'E00': ["d4", "nf6", "c4", "e6", "g3"],
@@ -720,21 +761,19 @@ class State(rx.State):
             for move in moves:
                 board.push_san(move)
             
-            # Configuración mejorada del SVG
             svg_content = chess.svg.board(
                 board=board,
                 size=400,
                 coordinates=True,
-                flipped=False,  # Mostrar desde perspectiva de blancas
-                lastmove=board.peek() if board.move_stack else None,  # Resaltar último movimiento
-                check=board.king(board.turn) if board.is_check() else None  # Resaltar jaque
+                flipped=False,
+                lastmove=board.peek() if board.move_stack else None,
+                check=board.king(board.turn) if board.is_check() else None
             )
             encoded_svg = urllib.parse.quote(svg_content)
             return f"data:image/svg+xml;utf8,{encoded_svg}"
         except Exception as e:
             print(f"Error rendering board: {e}")
             return ""
-
 
     def next_move(self):
         if self.current_move < len(self.game_moves)-1:
@@ -749,9 +788,6 @@ class State(rx.State):
     def reset_game(self):
         self.current_move = 0
         self.board_svg = self._render_board([self.game_moves[0]])
-
-    def rate_recommendation(self, stars: int):
-        self.rating = stars
 
     @rx.var
     def move_pairs(self) -> List[int]:
@@ -854,7 +890,7 @@ def index():
 
 @rx.page(route="/send-game")
 def send_game():
-    ChessState.on_load()
+    State.on_load()
     return rx.box(
         rx.box(
             rx.flex(
@@ -896,6 +932,7 @@ def send_game():
                                 rx.heading("Envía tu partida PGN", font_size="1.5em", color="white"),
                                 rx.text_area(
                                     placeholder="Pega tu PGN aquí...",
+                                    value=State.pgn_text,
                                     on_change=State.set_pgn_text,
                                     width="400px",
                                     height="200px",
@@ -1019,8 +1056,8 @@ def send_game():
 
 def chess_square(square: str):
     """Componente para una casilla del tablero con imágenes"""
-    is_selected = ChessState.selected_square == square
-    is_legal_move = ChessState.legal_moves.contains(square)
+    is_selected = State.selected_square == square
+    is_legal_move = State.legal_moves.contains(square)
     
     is_light = (ord(square[0]) - ord('a') + int(square[1])) % 2 == 1
     base_bg_color = "#f0d9b5" if is_light else "#b58863"
@@ -1032,8 +1069,8 @@ def chess_square(square: str):
     )
     
     piece_symbol = rx.cond(
-        ChessState.position.contains(square),
-        ChessState.position[square],
+        State.position.contains(square),
+        State.position[square],
         ""
     )
     
@@ -1045,7 +1082,7 @@ def chess_square(square: str):
     
     return rx.box(
         piece_component,
-        on_click=lambda: ChessState.select_square(square),
+        on_click=lambda: State.select_square(square),
         width="60px",
         height="60px",
         display="flex",
@@ -1058,14 +1095,11 @@ def chess_square(square: str):
 
 def chess_board():
     """Componente completo del tablero de ajedrez"""
-    ranks = range(8, 0, -1)  # Filas 8 a 1
-    files = "abcdefgh"       # Columnas a a h
-    
     return rx.vstack(
         rx.heading("Tablero de Ajedrez Interactivo", color="white", font_size="1.5em"),
         rx.box(
             rx.flex(
-                *[chess_square(f"{file}{rank}") for rank in ranks for file in files],
+                *[chess_square(f"{file}{rank}") for rank in range(8, 0, -1) for file in "abcdefgh"],
                 wrap="wrap",
                 width="480px",
                 height="480px",
@@ -1077,19 +1111,28 @@ def chess_board():
         rx.hstack(
             rx.button(
                 "Reiniciar Tablero",
-                on_click=ChessState.reset_board,
+                on_click=State.reset_board,
                 bg="#FF5722",
                 color="white",
                 _hover={"bg": "#E64A19"}
             ),
+            rx.button(
+                "Cargar PGN al Tablero",
+                on_click=State.load_pgn_to_board,
+                bg="#4CAF50",
+                color="white",
+                _hover={"bg": "#388E3C"},
+                margin_left="1em"
+            ),
             rx.text(
                 rx.cond(
-                    ChessState.turn == "white",
+                    State.turn == "white",
                     "Turno: Blancas",
                     "Turno: Negras"
                 ),
                 color="white",
-                font_weight="bold"
+                font_weight="bold",
+                margin_left="1em"
             ),
             spacing="4",
             margin_top="1em"
