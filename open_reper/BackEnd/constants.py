@@ -1,6 +1,7 @@
 #backend/constants.py
 from typing import Dict, List, Tuple
 
+# Mapeo de aperturas
 opening_mapping: Dict[str, List[Tuple[str, str]]] = {
     'posicional': [
         ('E00', 'Apertura Catalana'),

@@ -340,7 +340,7 @@ class ChessStyleAnalyzer:
 
     @classmethod
     def load_model(cls, filename):
-        """Carga el model y metadatos con verificación de integridad"""
+        """Carga el modelo y metadatos con verificación de integridad"""
         analyzer = cls()
 
         # Cargar metadatos
