@@ -57,6 +57,13 @@ class State(rx.State):
         self.error = ""
         color = self.selected_color
         self.recommended_openings = []
+        self.recommended_opening = {
+            "eco": "",
+            "name": "",
+            "style": "",
+            "description": "",
+            "plans": []
+        }
         try:
             # Análisis de estilo
             result = await asyncio.get_event_loop().run_in_executor(
@@ -111,10 +118,6 @@ class State(rx.State):
                     self.add_recommended_opening("Defensa", recommended_defense, style)
                     
             self.current_move = 0
-            
-            # self.game_moves = _get_model_games(eco_code)
-            # if self.game_moves:
-            #     self.board_svg = self._render_board(self.game_moves[:self.current_move + 1])
 
         except Exception as e:
             self.error = f"Error procesando PGN: {str(e)}"
@@ -179,6 +182,13 @@ class State(rx.State):
         self.recommendation = {}
         self.error = ""
         self.recommended_openings = []
+        self.recommended_opening = {
+            "eco": "",
+            "name": "",
+            "style": "",
+            "description": "",
+            "plans": []
+        }
 
     def generate_pgn_from_board(self):
         """Genera el PGN acumulativo a partir del historial de movimientos."""
@@ -228,6 +238,25 @@ class State(rx.State):
         self.black_player = _get_black_player(recommended_opening["eco"])
         
         self.recommended_openings.append(recommended_opening)
+        
+    def set_recommend_opening(self, opening: str, style: str):
+        if self.recommended_opening["name"] != "" and self.recommended_opening["eco"] != "" and self.recommended_opening["style"] != "" and self.recommended_opening["description"] != "" and self.recommended_opening["plans"] != []:
+            self.recommended_openings.append(self.recommended_opening)
+        opening_aux = opening.replace("Defensa ", "").replace("Apertura ", "")
+        self.recommended_opening = {
+            "eco": openings[opening_aux.replace(" ", "_")],
+            "name": opening,
+            "style": style,
+            "description": _get_opening_description(openings[opening_aux.replace(" ", "_")]),
+            "plans": _get_plans(openings[opening_aux.replace(" ", "_")])
+        }
+        
+        if self.recommended_openings.__contains__(self.recommended_opening):
+            self.recommended_openings.remove(self.recommended_opening)
+            
+        self.game_moves = _get_model_games(self.recommended_opening["eco"])
+        if self.game_moves:
+            self.board_svg = self._render_board(self.game_moves[:self.current_move + 1])
 
     def _render_board(self, moves: List[str]) -> str:
         """Genera SVG del tablero como Data URI con mejor calidad"""

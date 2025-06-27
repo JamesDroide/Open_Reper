@@ -1,6 +1,6 @@
 import reflex as rx
 from open_reper.BackEnd.state import State
-from open_reper.FrontEnd.constants import BLUE_DARK, BLUE_HOVER, GREEN, GREEN_HOVER
+from open_reper.FrontEnd.constants import BLUE_HOVER, GREEN, GREEN_HOVER
 
 def opening_recommendation(style: str, description: str, opening: str):
     return rx.cond(
@@ -28,7 +28,8 @@ def opening_recommendation(style: str, description: str, opening: str):
                                 color="white",
                                 border_radius="6px",
                                 font_size="0.8em",
-                                _hover={"bg": GREEN_HOVER}
+                                _hover={"bg": GREEN_HOVER},
+                                on_click= lambda: State.set_recommend_opening(opening, style)
                             ),
                             href="/opening-recommended",
                             margin_top="0.5em",
