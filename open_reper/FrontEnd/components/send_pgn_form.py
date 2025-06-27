@@ -88,7 +88,7 @@ def send_pgn_form():
         ),
         rx.cond(
             State.error,
-            rx.text(State.error, color="red", font_weight="bold"),
+            rx.text(State.error, color="red", font_weight="bold", margin_top="1em", font_size="0.9em"),
         ),
         spacing="4",
         align="center",
