@@ -115,7 +115,7 @@ class State(rx.State):
                         self.error = f"No se encontró código ECO para defensa {recommended_defense}"
                         return
                     
-                    self.add_recommended_opening("Defensa", recommended_defense, style)
+                    self.add_recommended_opening("Defensa", recommended_defense, style, white_move)
                     
             self.current_move = 0
 
@@ -225,9 +225,12 @@ class State(rx.State):
         except Exception as e:
             print(f"Error loading PGN: {e}")
 
-    def add_recommended_opening(self, type_opening: str, opening: str, style: str):
+    def add_recommended_opening(self, type_opening: str, opening: str, style: str, white_move: str = None):
+        type_recommendation = "Blancas" if type_opening == "Apertura" else "Negras"
+        to_move = f" para 1) {white_move}" if white_move else ""
         recommended_opening = {
             "eco": openings[opening],
+            "type" : f"{type_recommendation}{to_move}",
             "name": f"{type_opening} {opening.replace('_', ' ')}",
             "style": style,
             "description": _get_opening_description(openings[opening]),
@@ -239,12 +242,13 @@ class State(rx.State):
         
         self.recommended_openings.append(recommended_opening)
         
-    def set_recommend_opening(self, opening: str, style: str):
-        if self.recommended_opening["name"] != "" and self.recommended_opening["eco"] != "" and self.recommended_opening["style"] != "" and self.recommended_opening["description"] != "" and self.recommended_opening["plans"] != []:
+    def set_recommend_opening(self, type_recommendation: str, opening: str, style: str):
+        if self.recommended_opening["type"] != "" and self.recommended_opening["name"] != "" and self.recommended_opening["eco"] != "" and self.recommended_opening["style"] != "" and self.recommended_opening["description"] != "" and self.recommended_opening["plans"] != []:
             self.recommended_openings.append(self.recommended_opening)
         opening_aux = opening.replace("Defensa ", "").replace("Apertura ", "")
         self.recommended_opening = {
             "eco": openings[opening_aux.replace(" ", "_")],
+            "type" : type_recommendation,
             "name": opening,
             "style": style,
             "description": _get_opening_description(openings[opening_aux.replace(" ", "_")]),

@@ -71,6 +71,7 @@ def recommended_opening_view():
             rx.foreach(
                 State.recommended_openings,
                 lambda opening: opening_recommendation(
+                    type_recommendation=opening["type"],
                     style=opening["style"],
                     description=opening["description"],
                     opening=opening["name"]
