@@ -16,6 +16,7 @@ class State(rx.State):
     recommended_openings: List[RecommendedOpening] = []
     recommended_opening: RecommendedOpening = {
         "eco": "",
+        "type" : "",
         "name": "",
         "style": "",
         "description": "",
@@ -59,6 +60,7 @@ class State(rx.State):
         self.recommended_openings = []
         self.recommended_opening = {
             "eco": "",
+            "type" : "",
             "name": "",
             "style": "",
             "description": "",
