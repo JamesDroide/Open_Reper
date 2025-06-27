@@ -1,6 +1,8 @@
 import reflex as rx
 from open_reper.BackEnd.state import State
 from open_reper.FrontEnd.components.chess_square import chess_square
+from open_reper.FrontEnd.constants import GREEN, GREEN_HOVER, ORANGE_HOVER
+from open_reper.variables import ORANGE
 
 def chess_board():
     """Componente completo del tablero de ajedrez"""
@@ -21,16 +23,16 @@ def chess_board():
             rx.button(
                 "Reiniciar Tablero",
                 on_click=State.reset_board,
-                bg="#FF5722",
+                bg=ORANGE,
                 color="white",
-                _hover={"bg": "#E64A19"}
+                _hover={"bg": ORANGE_HOVER}
             ),
             rx.button(
                 "Cargar PGN al Tablero",
                 on_click=State.load_pgn_to_board,
-                bg="#4CAF50",
+                bg=GREEN,
                 color="white",
-                _hover={"bg": "#388E3C"},
+                _hover={"bg": GREEN_HOVER},
                 margin_left="1em"
             ),
             rx.text(

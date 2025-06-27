@@ -1,6 +1,6 @@
 import reflex as rx
 from open_reper.BackEnd.state import State
-from open_reper.FrontEnd.constants import BLUE_DARK, WHITE
+from open_reper.FrontEnd.constants import BLUE_DARK, BLUE_DARK_HOVER, BLUE_HOVER, WHITE
 
 def moves_table():
     return rx.vstack(
@@ -24,7 +24,7 @@ def moves_table():
                 )
             ),
             margin_top="1em",
-            bg="#1E3A5F",
+            bg=BLUE_HOVER,
             padding="1em",
             border_radius="8px",
             width="100%",
@@ -37,7 +37,7 @@ def moves_table():
                 on_click=State.reset_game_second_board,
                 bg=BLUE_DARK,
                 color=WHITE,
-                _hover={"bg": "#152942"},
+                _hover={"bg": BLUE_DARK_HOVER},
                 title="Reiniciar reproducción",
                 font_size="2em",
                 margin_right="0.5em",
@@ -48,7 +48,7 @@ def moves_table():
                 on_click=State.prev_move_second_board,
                 bg=BLUE_DARK,
                 color=WHITE,
-                _hover={"bg": "#152942"},
+                _hover={"bg": BLUE_DARK_HOVER},
                 is_disabled=State.interactive_current_move <= 0,
                 title="Movimiento anterior",
                 font_size="2em",
@@ -60,7 +60,7 @@ def moves_table():
                 on_click=State.next_move_second_board,
                 bg=BLUE_DARK,
                 color=WHITE,
-                _hover={"bg": "#152942"},
+                _hover={"bg": BLUE_DARK_HOVER},
                 is_disabled=State.interactive_current_move >= State.format_move_list.length()-1,
                 title="Siguiente movimiento",
                 font_size="2em",
@@ -72,7 +72,7 @@ def moves_table():
                 on_click=State.go_to_last_move,
                 bg=BLUE_DARK,
                 color=WHITE,
-                _hover={"bg": "#152942"},
+                _hover={"bg": BLUE_DARK_HOVER},
                 is_disabled=State.interactive_current_move >= State.format_move_list.length() - 1,
                 title="Ir al final",
                 font_size="2em",

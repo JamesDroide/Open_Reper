@@ -1,6 +1,6 @@
 import reflex as rx
 from open_reper.BackEnd.state import State
-from open_reper.FrontEnd.constants import ORANGE, WHITE, FONT_FAMILY
+from open_reper.FrontEnd.constants import ORANGE, ORANGE_HOVER, WHITE, FONT_FAMILY
 
 def send_pgn_form():
     return rx.form(
@@ -72,11 +72,11 @@ def send_pgn_form():
             color=WHITE,
             margin_top="1em",
             is_loading=State.is_loading,
-            _hover={"bg": "#e03d00"},
+            _hover={"bg": ORANGE_HOVER},
             font_family=FONT_FAMILY,
             align_self="center",
             padding="1em",
-            bg="#2a5c9a",
+            bg=ORANGE,
             border_radius="8px",
             box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
             min_width="400px",

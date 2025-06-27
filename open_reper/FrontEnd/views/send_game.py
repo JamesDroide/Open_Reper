@@ -1,6 +1,7 @@
 import reflex as rx
 
 from open_reper.BackEnd.state import State
+from open_reper.FrontEnd.components.header import header
 from open_reper.FrontEnd.components.interactive_chess_board import chess_board
 from open_reper.FrontEnd.components.opening_recommendation import opening_recommendation
 from open_reper.FrontEnd.constants import BLUE_DARK, FONT_FAMILY
@@ -12,34 +13,12 @@ def send_game_view():
     return rx.box(
         rx.box(
             rx.flex(
-                rx.flex(
-                    rx.link(
-                        rx.image(
-                            src="/logo_open_reper.png",
-                            width="200px",
-                            height="auto",
-                        ),
-                        href="/",
-                        _hover={"cursor: pointer"},
-                    ),
-                    rx.vstack(
-                        rx.heading("Aprende y mejora tus aperturas", font_size="2em", color="white"),
-                        rx.text("Analiza tus partidas y descubre nuevas estrategias", color="#d1e0e0"),
-                        spacing="1",
-                        align_items="center",
-                        flex_grow=1
-                    ),
-                    justify_content="space-between",
-                    align_items="center",
-                    width="100%",
-                    padding="1em",
-                    bg=BLUE_DARK
-                ),
+                header("Envía tu partida", "Analiza tus partidas y descubre nuevas aperturas"),
                 rx.flex(
                     rx.box(
                         chess_board(),
                         padding="1em",
-                        bg="#2a5c9a",
+                        bg=BLUE_DARK,
                         border_radius="8px",
                         box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
                         margin_right="1em"
@@ -47,7 +26,7 @@ def send_game_view():
                     rx.box(
                         moves_table(),
                         padding="1em",
-                        bg="#2a5c9a",
+                        bg=BLUE_DARK,
                         border_radius="8px",
                         box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
                         margin_right="1em",

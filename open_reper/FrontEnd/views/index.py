@@ -1,7 +1,7 @@
 # frontend/views/index.py
 import reflex as rx
 
-from open_reper.FrontEnd.constants import BLUE_DARK, WHITE, ORANGE, FONT_FAMILY
+from open_reper.FrontEnd.constants import BLUE_DARK, ORANGE_HOVER, WHITE, ORANGE, FONT_FAMILY
 
 @rx.page(route="/")
 def index_view():
@@ -54,7 +54,7 @@ def index_view():
                                 max_width="300px",
                                 height="50px",
                                 margin_y=4,
-                                _hover={"bg": "#e03d00", "transform": "translateY(-2px)"},
+                                _hover={"bg": ORANGE_HOVER, "transform": "translateY(-2px)"},
                                 font_size="1.5em",
                             ),
                             href="/send-game",

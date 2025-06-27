@@ -1,9 +1,8 @@
 import reflex as rx
-from open_reper.FrontEnd.constants import BLUE_DARK
+from open_reper.FrontEnd.constants import BLUE_DARK, GRAY
 
-def header():
-    return rx.hstack(
-        rx.flex(
+def header(header: str, subheader: str):
+    return rx.flex(
             rx.link(
                 rx.image(
                     src="/logo_open_reper.png",
@@ -14,8 +13,8 @@ def header():
                 _hover={"cursor: pointer"},
             ),
             rx.vstack(
-                rx.heading("Recomendación de apertura", font_size="2em", color="white"),
-                rx.text("Mejora tu juego con recomendaciones basadas en tu estilo", color="#d1e0e0"),
+                rx.heading(header, font_size="2em", color="white"),
+                rx.text(subheader, color=GRAY),
                 spacing="1",
                 align_items="center",
                 flex_grow=1
@@ -26,5 +25,3 @@ def header():
             padding="1em",
             bg=BLUE_DARK
         ),
-
-    )
