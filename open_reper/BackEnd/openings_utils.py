@@ -1,4 +1,3 @@
-# open_reper/BackEnd/openings_utils.py
 from typing import List
 
 def _get_opening_description( eco_code: str) -> str:

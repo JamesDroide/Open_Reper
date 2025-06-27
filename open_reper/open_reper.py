@@ -1,4 +1,3 @@
-# open_reper/open_reper.py
 import reflex as rx
 from open_reper.FrontEnd.views.index import index_view
 from open_reper.FrontEnd.views.send_game import send_game_view

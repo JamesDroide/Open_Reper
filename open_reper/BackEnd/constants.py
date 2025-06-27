@@ -1,4 +1,3 @@
-#backend/constants.py
 from typing import Dict, List, Tuple
 
 # Mapeo de aperturas

@@ -1,4 +1,3 @@
-# backend/types.py
 from typing import List, TypedDict
 
 class RecommendedOpening(TypedDict):

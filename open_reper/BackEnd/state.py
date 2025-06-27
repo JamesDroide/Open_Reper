@@ -1,20 +1,18 @@
-#backend/state.py
 import urllib
 import chess
 import reflex as rx
 import asyncio
 import io
-
 from typing import List, Tuple, Dict
-from .types import RecommendedOpening
 
 from open_reper.BackEnd.model.model_loader import analyzer, recommender
 from open_reper.BackEnd.constants import style_descriptions, openings, opening_mapping
 from open_reper.BackEnd.openings_utils import _get_opening_description, _get_plans, _get_opening_moves, _get_model_games
+from open_reper.BackEnd.types import RecommendedOpening
 
 class State(rx.State):
     pgn_text: str = ""
-    recommendation: dict = {} # type: ignore
+    recommendation: dict = {}
     recommended_opening: RecommendedOpening = {
         "eco": "",
         "name": "",
@@ -34,7 +32,7 @@ class State(rx.State):
 
     white_player: str = "Blancas"
     black_player: str = "Negras"
-    game_metadata: dict = {} # type: ignore
+    game_metadata: dict = {}
     selected_color: str = "white"
 
     # Variables para el tablero interactivo
