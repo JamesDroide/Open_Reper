@@ -3,6 +3,7 @@ from open_reper.FrontEnd.components.chess_board import chess_board
 from open_reper.FrontEnd.components.header import header
 from open_reper.FrontEnd.components.moves_table_static import moves_table_static
 from open_reper.FrontEnd.components.opening_description import opening_description, opening_plans
+from open_reper.FrontEnd.components.opening_recommendation import opening_recommendation
 from open_reper.FrontEnd.constants import BLUE_DARK, FONT_FAMILY, ORANGE, ORANGE_HOVER
 import reflex as rx
 
@@ -58,6 +59,30 @@ def recommended_opening_view():
             ),
             background_color=BLUE_DARK,
             width="100%"
+        ),
+        rx.flex(
+            rx.heading("Otras recomendaciones",
+                        font_size="1.5em",
+                        color="white"),
+            justify_content="center",
+            margin_y="2em",
+        ),
+        rx.flex(
+            rx.foreach(
+                State.recommended_openings,
+                lambda opening: opening_recommendation(
+                    style=opening["style"],
+                    description=opening["description"],
+                    opening=opening["name"]
+                )
+            ),
+            display="grid",
+            grid_template_columns="repeat(2, 1fr)",
+            gap="2em",
+            justify_content="center",
+            padding="2em",
+            max_width="1200px",
+            margin="0 auto",
         ),
         rx.center(
             rx.button(

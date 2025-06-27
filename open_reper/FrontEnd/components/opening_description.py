@@ -35,5 +35,6 @@ def opening_plans(plans: List[str]):
                 ),
                 padding="0.5em",
                 bg="#2a5c9a",
-                border_radius="8px"
+                border_radius="8px",
+                margin_top="2em"
             )
