@@ -1,4 +1,5 @@
-from open_reper.BackEnd.model.model_loader import analyzer, recommender
+import numpy as np
+from open_reper.BackEnd.model.model_loader import analyzer, recommender, defense_recommender
 
 pgn = """
 [Event "Rated blitz game"]
@@ -64,3 +65,21 @@ def test_recommendation_invalid_pgn_2():
     
 def test_recommendation_less_than_30_moves():
     assert recommender.recommend_for_pgn(pgn_less_than_30_moves, "white", "posicional") == {"status": "error", "message": "El PGN enviado debe contener un mínimo de 30 movimientos"}
+    
+def test_defense_recommendation_white_player():
+    assert defense_recommender.recommend_for_pgn(pgn, "white", "posicional") == {"c4" : [{"defensa": np.str_('Variante_simetrica'), "probabilidad" : 9.254115952272204e-31}], 'd4' : [{'defensa' : np.str_('Eslava'), "probabilidad" : 3.376269357288701e-16}], 'e4' : [{'defensa' : np.str_('Caro_Kahn'), "probabilidad" : 0.9981607794761658}]}
+    
+def test_defense_recommendation_black_player():
+    assert defense_recommender.recommend_for_pgn(pgn, "black", "posicional") == {"c4" : [{"defensa": np.str_('Variante_simetrica'), "probabilidad" : 7.788908473814052e-29}], 'd4' : [{'defensa' : np.str_('Eslava'), "probabilidad" : 1.5024802017662358e-20}], 'e4' : [{'defensa' : np.str_('Caro_Kahn'), "probabilidad" : 1.0}]}
+    
+def test_defense_recommendation_invalid_style():
+    assert defense_recommender.recommend_for_pgn(pgn, "white", style_not_valid) == "Estilo 'STYLE INVALID' no válido. Opciones: ['posicional', 'combinativo', 'universal']"
+    
+def test_defense_recommendation_invalid_pgn():
+    assert defense_recommender.recommend_for_pgn(pgn_not_valid, "white", "posicional") == {"status": "error", "message": "No se ha enviado un PGN válido"}
+    
+def test_defense_recommendation_invalid_pgn_2():
+    assert defense_recommender.recommend_for_pgn(pgn_not_valid_2, "white", "posicional") == {"status": "error", "message": "No se ha enviado un PGN válido"}
+    
+def test_defense_recommendation_less_than_30_moves():
+    assert defense_recommender.recommend_for_pgn(pgn_less_than_30_moves, "white", "posicional") == {"status": "error", "message": "El PGN enviado debe contener un mínimo de 30 movimientos"}
