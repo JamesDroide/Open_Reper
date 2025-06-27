@@ -1,24 +1,3 @@
-from typing import Dict, List, Tuple
-
-# Mapeo de aperturas
-opening_mapping: Dict[str, List[Tuple[str, str]]] = {
-    'posicional': [
-        ('E00', 'Apertura Catalana'),
-        ('A10', 'Apertura Inglesa'),
-        ('D02', 'Sistema Londres')
-    ],
-    'combinativo': [
-        ('C39', 'Gambito de Rey'),
-        ('C44', 'Apertura Escocesa'),
-        ('C21', 'Gambito Danés')
-    ],
-    'universal': [
-        ('C50', 'Apertura Italiana'),
-        ('C60', 'Apertura Española'),
-        ('D00', 'Gambito de Dama')
-    ]
-}
-
 style_descriptions = {
     'Posicional': 'Aperturas que priorizan el control posicional y estructural.',
     'Combinativo': 'Aperturas dinámicas con combinaciones tácticas agresivas.',
@@ -34,5 +13,14 @@ openings = {
     'Gambito_Danes': 'C21',
     'Italiana': 'C50',
     'Española': 'C60',
-    'Gambito_de_Dama': 'D00'
+    'Gambito_de_Dama': 'D00',
+    'Francesa': 'C00',
+    'Caro_Kahn': 'B10',
+    'Siciliana': 'B20',
+    'India_de_rey': 'E60',
+    'Eslava': 'D10',
+    'India_de_dama': 'E12',
+    'Variante_simetrica': 'A34',
+    'Siciliana_invertida': 'A20',
+    'Variante_india': 'A17'
 }

@@ -5,14 +5,15 @@ import asyncio
 import io
 from typing import List, Tuple, Dict
 
-from open_reper.BackEnd.model.model_loader import analyzer, recommender
-from open_reper.BackEnd.constants import style_descriptions, openings, opening_mapping
-from open_reper.BackEnd.openings_utils import _get_opening_description, _get_plans, _get_opening_moves, _get_model_games
+from open_reper.BackEnd.model.model_loader import analyzer, recommender, defense_recommender
+from open_reper.BackEnd.constants import style_descriptions, openings
+from open_reper.BackEnd.openings_utils import _get_black_player, _get_opening_description, _get_plans, _get_model_games, _get_white_player
 from open_reper.BackEnd.types import RecommendedOpening
 
 class State(rx.State):
     pgn_text: str = ""
     recommendation: dict = {}
+    recommended_openings: List[RecommendedOpening] = []
     recommended_opening: RecommendedOpening = {
         "eco": "",
         "name": "",
@@ -55,6 +56,7 @@ class State(rx.State):
         self.is_loading = True
         self.error = ""
         color = self.selected_color
+        self.recommended_openings = []
         try:
             # Análisis de estilo
             result = await asyncio.get_event_loop().run_in_executor(
@@ -78,10 +80,15 @@ class State(rx.State):
                 lambda: recommender.recommend_for_pgn(self.pgn_text, color, style.lower())
             )
 
-            # Validación de respuesta del recomendador
             if not isinstance(result_opening, list) or len(result_opening) == 0:
                 self.error = "No se encontraron recomendaciones válidas"
                 return
+            
+            # Obtención de recomendación de defensa
+            result_defense = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: defense_recommender.recommend_for_pgn(self.pgn_text, color, style.lower())
+            )
 
             # Extracción de datos de la apertura
             recommended_opening = result_opening[0]['apertura']
@@ -91,14 +98,23 @@ class State(rx.State):
                 self.error = f"No se encontró código ECO para {recommended_opening}"
                 return
 
-            # Actualización de estado
-            self.recommendation['opening'] = f"Apertura {recommended_opening.replace('_', ' ')}"
-            self.set_recommended_opening(recommended_opening, style)
-            self.game_moves = _get_model_games(eco_code)
-            self.current_move = 0
+            self.add_recommended_opening("Apertura", recommended_opening, style)
 
-            if self.game_moves:
-                self.board_svg = self._render_board(self.game_moves[:self.current_move + 1])
+            for white_move in ['e4', 'd4', 'c4']:
+                for _, defense in enumerate(result_defense[white_move], 1):
+                    recommended_defense = defense['defensa']
+                    eco_code_defense = openings.get(recommended_defense)
+                    if not eco_code_defense:
+                        self.error = f"No se encontró código ECO para defensa {recommended_defense}"
+                        return
+                    
+                    self.add_recommended_opening("Defensa", recommended_defense, style)
+                    
+            self.current_move = 0
+            
+            # self.game_moves = _get_model_games(eco_code)
+            # if self.game_moves:
+            #     self.board_svg = self._render_board(self.game_moves[:self.current_move + 1])
 
         except Exception as e:
             self.error = f"Error procesando PGN: {str(e)}"
@@ -161,6 +177,8 @@ class State(rx.State):
         self.reset_selection()
         self.pgn_text = ""
         self.recommendation = {}
+        self.error = ""
+        self.recommended_openings = []
 
     def generate_pgn_from_board(self):
         """Genera el PGN acumulativo a partir del historial de movimientos."""
@@ -197,22 +215,19 @@ class State(rx.State):
         except Exception as e:
             print(f"Error loading PGN: {e}")
 
-    def set_recommended_opening(self, opening: str, style: str):
-        self.recommended_opening = {
+    def add_recommended_opening(self, type_opening: str, opening: str, style: str):
+        recommended_opening = {
             "eco": openings[opening],
-            "name": f"Apertura {opening.replace('_', ' ')}",
+            "name": f"{type_opening} {opening.replace('_', ' ')}",
             "style": style,
             "description": _get_opening_description(openings[opening]),
             "plans": _get_plans(openings[opening])
         }
-
-    def _get_opening_name(self, eco_code: str) -> str:
-        """Obtiene el nombre de la apertura por código ECO"""
-        for style in opening_mapping.values():
-            for code, name in style:
-                if code == eco_code:
-                    return name
-        return "Desconocida"
+        
+        self.white_player = _get_white_player(recommended_opening["eco"])
+        self.black_player = _get_black_player(recommended_opening["eco"])
+        
+        self.recommended_openings.append(recommended_opening)
 
     def _render_board(self, moves: List[str]) -> str:
         """Genera SVG del tablero como Data URI con mejor calidad"""

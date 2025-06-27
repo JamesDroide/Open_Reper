@@ -48,7 +48,23 @@ def send_game_view():
             background_color=BLUE_DARK,
             width="100%",
         ),
-        opening_recommendation(),
+        rx.flex(
+            rx.foreach(
+                State.recommended_openings,
+                lambda opening: opening_recommendation(
+                    style=opening["style"],
+                    description=opening["description"],
+                    opening=opening["name"]
+                )
+            ),
+            display="grid",
+            grid_template_columns="repeat(2, 1fr)",
+            gap="2em",
+            justify_content="center",
+            padding="2em",
+            max_width="1200px",
+            margin="0 auto",
+        ),
         style={
             "position": "fixed",
             "top": 0,

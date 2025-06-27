@@ -6,7 +6,9 @@ def send_pgn_form():
     return rx.form(
         rx.center(
             rx.heading("Envía tu partida PGN", font_size="1.5em", color="white"),
-            width="100%"
+            width="100%",
+            margin_bottom="1em",
+            margin_top="1em",
         ),
         rx.text_area(
             placeholder="Pega tu PGN aquí...",
@@ -20,7 +22,7 @@ def send_pgn_form():
             color="black",
             bg="white",
         ),
-        rx.heading("Selecciona tu color:", font_size="1.2em", color="white"),
+        rx.heading("Selecciona tu color:", font_size="1.2em", color="white", margin_top="1em"),
         rx.hstack(
             rx.image(
                 src="/white-pawn.png",
@@ -56,6 +58,7 @@ def send_pgn_form():
             ),
             spacing="4",
             margin_top="2em",
+            margin_bottom="2em",
             justify_content="center"
         ),
         rx.center(

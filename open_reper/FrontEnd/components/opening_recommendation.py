@@ -2,60 +2,54 @@ import reflex as rx
 from open_reper.BackEnd.state import State
 from open_reper.FrontEnd.constants import BLUE_DARK, BLUE_HOVER, GREEN, GREEN_HOVER
 
-def opening_recommendation():
+def opening_recommendation(style: str, description: str, opening: str):
     return rx.cond(
         State.recommendation,
-        rx.center(
-            rx.box(
-                rx.vstack(
-                    rx.heading("Recomendación de Apertura", font_size="1.8em", color="white"),
-                    rx.hstack(
-                        rx.vstack(
-                            rx.text("Estilo detectado:", font_weight="bold", color="white"),
-                            rx.text(State.recommendation['style'], color="white", font_size="1.2em"),
-                            rx.text("Descripción:", font_weight="bold", color="white", margin_top="1em"),
-                            rx.text(State.recommendation['description'], color="white"),
-                            align_items="flex-start",
-                            spacing="2",
-                            padding="1em",
-                            min_width="300px"
-                        ),
-                        rx.vstack(
-                            rx.text("Apertura recomendada:", font_weight="bold", color="white"),
-                            rx.text(State.recommendation['opening'], color="white", font_size="1.2em"),
-                            rx.link(
-                                rx.button(
-                                    "Ver detalles de la apertura",
-                                    bg=GREEN,
-                                    color="white",
-                                    border_radius="8px",
-                                    font_weight="bold",
-                                    font_size="1.1em",
-                                    cursor="pointer",
-                                    margin_top="1em",
-                                    _hover={"bg": GREEN_HOVER}
-                                ),
-                                href="/opening-recommended"
-                            ),
-                            align_items="flex-start",
-                            spacing="2",
-                            padding="1em",
-                            min_width="300px"
-                        ),
-                        spacing="4",
-                        justify_content="center"
+        rx.box(
+            rx.vstack(
+                rx.heading("Recomendación de Apertura", font_size="1.1em", color="white"),
+                rx.hstack(
+                    rx.vstack(
+                        rx.text("Estilo detectado:", font_weight="bold", color="white"),
+                        rx.text(style, color="white", font_size="0.9em"),
+                        rx.text("Descripción:", font_weight="bold", color="white", margin_top="0.5em"),
+                        rx.text(description, color="white", font_size="0.8em", text_align="justify"),
+                        align_items="flex-start",
+                        spacing="2",
+                        padding="0.5em",
                     ),
-                    bg=BLUE_HOVER,
-                    padding="2em",
-                    border_radius="8px",
-                    margin_top="2em",
-                    width="100%",
-                    max_width="800px",
-                    box_shadow="0 8px 16px rgba(0, 0, 0, 0.3)"
+                    rx.vstack(
+                        rx.text("Apertura recomendada:", font_weight="bold", color="white"),
+                        rx.text(opening, color="white", font_size="0.9em"),
+                        rx.link(
+                            rx.button(
+                                "Ver detalles",
+                                bg=GREEN,
+                                color="white",
+                                border_radius="6px",
+                                font_size="0.8em",
+                                _hover={"bg": GREEN_HOVER}
+                            ),
+                            href="/opening-recommended",
+                            margin_top="0.5em",
+                        ),
+                        align_items="flex-start",
+                        spacing="2",
+                        padding="0.5em",
+                    ),
+                    spacing="3",
+                    justify_content="space-between",
+                    flex="1 1 100%",
                 ),
+                bg=BLUE_HOVER,
+                padding="1.5em",
+                border_radius="6px",
+                box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
+                width="100%",
             ),
-            width="100%",
-            padding="2em",
-            bg=BLUE_DARK
+            margin_y="1em",
+            flex="1 0 calc(50% - 1em)",
+            max_width="none",
+            min_width="350px",
         ),
     )
