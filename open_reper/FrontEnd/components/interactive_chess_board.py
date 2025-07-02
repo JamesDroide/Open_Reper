@@ -1,7 +1,7 @@
 import reflex as rx
 from open_reper.BackEnd.state import State
 from open_reper.FrontEnd.components.chess_square import chess_square
-from open_reper.FrontEnd.constants import GREEN, GREEN_HOVER, ORANGE_HOVER
+from open_reper.FrontEnd.constants import ORANGE_HOVER
 from open_reper.variables import ORANGE
 
 def chess_board():
@@ -27,14 +27,6 @@ def chess_board():
                 color="white",
                 _hover={"bg": ORANGE_HOVER}
             ),
-            rx.button(
-                "Cargar PGN al Tablero",
-                on_click=State.load_pgn_to_board,
-                bg=GREEN,
-                color="white",
-                _hover={"bg": GREEN_HOVER},
-                margin_left="1em"
-            ),
             rx.text(
                 rx.cond(
                     State.turn == "white",
@@ -46,7 +38,9 @@ def chess_board():
                 margin_left="1em"
             ),
             spacing="4",
-            margin_top="1em"
+            margin_top="1em",
+            align_items="center",
+            justify_content="center",
         ),
         align="center",
     )
