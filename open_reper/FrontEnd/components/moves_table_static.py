@@ -49,8 +49,6 @@ def moves_table_static():
                 ),
                 padding="1em",
                 bg=BLUE_DARK,
-                border_radius="8px",
-                box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
                 margin_right="1em",
                 min_width="350px"
             )

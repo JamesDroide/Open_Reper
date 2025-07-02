@@ -19,16 +19,12 @@ def send_game_view():
                         chess_board(),
                         padding="1em",
                         bg=BLUE_DARK,
-                        border_radius="8px",
-                        box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
                         margin_right="1em"
                     ),
                     rx.box(
                         moves_table(),
                         padding="1em",
                         bg=BLUE_DARK,
-                        border_radius="8px",
-                        box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
                         margin_right="1em",
                         min_width="350px"
                     ),
