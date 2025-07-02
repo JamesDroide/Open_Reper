@@ -39,8 +39,6 @@ def recommended_opening_view():
                         chess_board(),
                         padding="1em",
                         bg="#2a5c9a",
-                        border_radius="8px",
-                        box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
                         margin_right="1em"
                     ),
                     moves_table_static(),

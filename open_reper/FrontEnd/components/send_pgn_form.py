@@ -1,6 +1,6 @@
 import reflex as rx
 from open_reper.BackEnd.state import State
-from open_reper.FrontEnd.constants import ORANGE, ORANGE_HOVER, WHITE, FONT_FAMILY
+from open_reper.FrontEnd.constants import GREEN, GREEN_HOVER, ORANGE, ORANGE_HOVER, WHITE, FONT_FAMILY
 
 def send_pgn_form():
     return rx.form(
@@ -21,6 +21,22 @@ def send_pgn_form():
             padding="1em",
             color="black",
             bg="white",
+        ),
+        rx.button(
+                "Cargar PGN al Tablero",
+                on_click=State.load_pgn_to_board,
+                bg=GREEN,
+                color="white",
+                _hover={"bg": GREEN_HOVER},
+                margin_top="1em",
+                font_family=FONT_FAMILY,
+                align_self="center",
+                padding="1em",
+                border_radius="8px",
+                box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
+                min_width="400px",
+                max_width="400px",
+                flex_shrink=0
         ),
         rx.heading("Selecciona tu color:", font_size="1.2em", color="white", margin_top="1em"),
         rx.hstack(
