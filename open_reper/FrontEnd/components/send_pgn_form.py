@@ -38,6 +38,10 @@ def send_pgn_form():
                 max_width="400px",
                 flex_shrink=0
         ),
+        rx.cond(
+            State.error_load_game,
+            rx.text(State.error_load_game, color="red", font_weight="bold", margin_top="1em", font_size="0.9em"),
+        ),
         rx.heading("Selecciona tu color:", font_size="1.2em", color="white", margin_top="1em"),
         rx.hstack(
             rx.image(
@@ -74,7 +78,7 @@ def send_pgn_form():
             ),
             spacing="4",
             margin_top="2em",
-            margin_bottom="2em",
+            margin_bottom="1em",
             justify_content="center"
         ),
         rx.center(
