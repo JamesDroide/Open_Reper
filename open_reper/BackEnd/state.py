@@ -24,6 +24,7 @@ class State(rx.State):
     }
     is_loading: bool = False
     error: str = ""
+    error_load_game: str = ""
     current_move: int = 0
     board_svg: str = ""
     game_moves: List[str] = []
@@ -56,6 +57,7 @@ class State(rx.State):
     async def get_recommendation(self):
         self.is_loading = True
         self.error = ""
+        self.error_load_game = ""
         color = self.selected_color
         self.recommended_openings = []
         self.recommended_opening = {
@@ -183,6 +185,7 @@ class State(rx.State):
         self.pgn_text = ""
         self.recommendation = {}
         self.error = ""
+        self.error_load_game = ""
         self.recommended_openings = []
         self.recommended_opening = {
             "eco": "",
@@ -214,8 +217,16 @@ class State(rx.State):
     def load_pgn_to_board(self):
         """Carga el PGN desde el área de texto al tablero interactivo."""
         try:
+            self.error_load_game = ""
             game = chess.pgn.read_game(io.StringIO(self.pgn_text))
             if game:
+                if not game.mainline_moves():
+                    self.error_load_game = "El PGN no contiene movimientos válidos."
+                    return
+                
+                cleaned_pgn = str(game)
+                self.pgn_text = cleaned_pgn
+                
                 board = game.board()
                 self.move_history = []
                 for move in game.mainline_moves():
@@ -224,6 +235,8 @@ class State(rx.State):
                 self.fen = board.fen()
                 self.update_position()
                 self.reset_selection()
+            else:
+                self.error_load_game = "No se pudo cargar el PGN. Asegúrate de que el formato sea correcto."
         except Exception as e:
             print(f"Error loading PGN: {e}")
 
