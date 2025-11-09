@@ -270,6 +270,9 @@ class State(rx.State):
             "plans": _get_plans(openings[opening_aux.replace(" ", "_")])
         }
         
+        self.white_player = _get_white_player(self.recommended_opening["eco"])
+        self.black_player = _get_black_player(self.recommended_opening["eco"])
+        
         if self.recommended_openings.__contains__(self.recommended_opening):
             self.recommended_openings.remove(self.recommended_opening)
             
