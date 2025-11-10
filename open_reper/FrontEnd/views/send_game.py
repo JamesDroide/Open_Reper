@@ -17,27 +17,27 @@ def send_game_view():
                 rx.flex(
                     rx.box(
                         chess_board(),
-                        padding="1em",
+                        padding="0.7em",
                         bg=BLUE_DARK,
-                        margin_right="1em"
+                        margin_right="0.7em"
                     ),
                     rx.box(
                         moves_table(),
-                        padding="1em",
+                        padding="0.7em",
                         bg=BLUE_DARK,
-                        margin_right="1em",
-                        min_width="350px"
+                        margin_right="0.7em",
+                        min_width="280px"
                     ),
                     rx.box(
                         send_pgn_form(),
                     ),
                     width="100%",
-                    max_width="1200px",
+                    max_width="1000px",
                     margin_x="auto",
-                    padding_x=4,
+                    padding_x=3,
                 ),
                 width="100%",
-                max_width="1200px",
+                max_width="1000px",
                 margin_x="auto",
                 flex_direction="column",
             ),
@@ -56,10 +56,10 @@ def send_game_view():
             ),
             display="grid",
             grid_template_columns="repeat(2, 1fr)",
-            gap="2em",
+            gap="1.5em",
             justify_content="center",
-            padding="2em",
-            max_width="1200px",
+            padding="1.5em",
+            max_width="1000px",
             margin="0 auto",
         ),
         style={

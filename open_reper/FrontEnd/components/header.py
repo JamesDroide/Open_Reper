@@ -6,15 +6,15 @@ def header(header: str, subheader: str):
             rx.link(
                 rx.image(
                     src="/logo_open_reper.png",
-                    width="200px",
+                    width="130px",
                     height="auto",
                 ),
                 href="/",
                 _hover={"cursor: pointer"},
             ),
             rx.vstack(
-                rx.heading(header, font_size="2em", color="white"),
-                rx.text(subheader, color=GRAY),
+                rx.heading(header, font_size="1.4em", color="white"),
+                rx.text(subheader, color=GRAY, font_size="0.9em"),
                 spacing="1",
                 align_items="center",
                 flex_grow=1
@@ -22,6 +22,6 @@ def header(header: str, subheader: str):
             justify_content="space-between",
             align_items="center",
             width="100%",
-            padding="1em",
+            padding="0.7em",
             bg=BLUE_DARK
         ),

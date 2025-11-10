@@ -16,42 +16,42 @@ def recommended_opening_view():
                 rx.flex(
                     rx.vstack(
                         rx.heading("Apertura Recomendada",
-                                font_size="2em",
+                                font_size="1.4em",
                                 color="white"),
                         rx.heading(
                             State.recommended_opening['name'],
-                            font_size="3.5em",
+                            font_size="2.2em",
                             color="white",
-                            margin_bottom="1em"
+                            margin_bottom="0.7em"
                         ),
-                        spacing="5",
+                        spacing="3",
                         width="100%",
-                        max_width="1200px",
-                        padding_x="2em",
+                        max_width="1000px",
+                        padding_x="1.5em",
                         align_items="center"
                     ),
                     bg=BLUE_DARK,
                     width="100%",
-                    padding_y="2em"
+                    padding_y="1.5em"
                 ),
                 rx.flex(
                     rx.box(
                         chess_board(),
-                        padding="1em",
+                        padding="0.7em",
                         bg="#2a5c9a",
-                        margin_right="1em"
+                        margin_right="0.7em"
                     ),
                     moves_table_static(),
                     width="100%",
-                    max_width="1200px",
+                    max_width="1000px",
                     margin_x="auto",
-                    padding_x=4,
+                    padding_x=3,
                     justify_content="space-between",
                 ),
                 opening_description(State.recommended_opening['description']),
                 opening_plans(State.recommended_opening['plans']),
                 width="100%",
-                max_width="1200px",
+                max_width="1000px",
                 margin_x="auto",
                 flex_direction="column",
             ),
@@ -60,10 +60,10 @@ def recommended_opening_view():
         ),
         rx.flex(
             rx.heading("Otras recomendaciones",
-                        font_size="1.5em",
+                        font_size="1.2em",
                         color="white"),
             justify_content="center",
-            margin_y="2em",
+            margin_y="1.5em",
         ),
         rx.flex(
             rx.foreach(
@@ -77,10 +77,10 @@ def recommended_opening_view():
             ),
             display="grid",
             grid_template_columns="repeat(2, 1fr)",
-            gap="2em",
+            gap="1.5em",
             justify_content="center",
-            padding="2em",
-            max_width="1200px",
+            padding="1.5em",
+            max_width="1000px",
             margin="0 auto",
         ),
         rx.center(
@@ -88,15 +88,16 @@ def recommended_opening_view():
                 "Analizar Otra Partida",
                 bg=ORANGE,
                 color="white",
-                padding="1em 4em",
+                padding="0.7em 2.5em",
                 on_click=lambda: rx.redirect("/send-game"),
                 border_radius="8px",
                 _hover={"bg": ORANGE_HOVER},
-                cursor="pointer"
+                cursor="pointer",
+                font_size="0.9em"
             ),
             bg="#2A5C9A",
             width="100%",
-            padding_y="2em"
+            padding_y="1.5em"
         ),
         style={
             "position": "fixed",
