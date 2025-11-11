@@ -5,22 +5,23 @@ from open_reper.FrontEnd.constants import GREEN, GREEN_HOVER, ORANGE, ORANGE_HOV
 def send_pgn_form():
     return rx.form(
         rx.center(
-            rx.heading("Envía tu partida PGN", font_size="1.5em", color="white"),
+            rx.heading("Envía tu partida PGN", font_size="1.1em", color="white"),
             width="100%",
-            margin_bottom="1em",
-            margin_top="1em",
+            margin_bottom="0.7em",
+            margin_top="0.7em",
         ),
         rx.text_area(
             placeholder="Pega tu PGN aquí...",
             value=State.pgn_text,
             on_change=State.set_pgn_text,
-            width="400px",
-            height="200px",
+            width="320px",
+            height="150px",
             border_radius="8px",
             border="1px solid #808080",
-            padding="1em",
+            padding="0.7em",
             color="black",
             bg="white",
+            font_size="0.85em",
         ),
         rx.button(
                 "Cargar PGN al Tablero",
@@ -28,26 +29,27 @@ def send_pgn_form():
                 bg=GREEN,
                 color="white",
                 _hover={"bg": GREEN_HOVER},
-                margin_top="1em",
+                margin_top="0.7em",
                 font_family=FONT_FAMILY,
                 align_self="center",
-                padding="1em",
+                padding="0.7em",
                 border_radius="8px",
                 box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
-                min_width="400px",
-                max_width="400px",
-                flex_shrink=0
+                min_width="320px",
+                max_width="320px",
+                flex_shrink=0,
+                font_size="0.85em",
         ),
         rx.cond(
             State.error_load_game,
-            rx.text(State.error_load_game, color="red", font_weight="bold", margin_top="1em", font_size="0.9em"),
+            rx.text(State.error_load_game, color="red", font_weight="bold", margin_top="0.7em", font_size="0.8em"),
         ),
-        rx.heading("Selecciona tu color:", font_size="1.2em", color="white", margin_top="1em"),
+        rx.heading("Selecciona tu color:", font_size="1em", color="white", margin_top="0.7em"),
         rx.hstack(
             rx.image(
-                src="/white-pawn.png",
-                width="64px",
-                height="64px",
+                src="/white-pawn.webp",
+                width="48px",
+                height="48px",
                 border=rx.cond(
                     State.selected_color == "white",
                     "3px solid #F24100",
@@ -61,9 +63,9 @@ def send_pgn_form():
                 _active={"transform": "scale(0.95) rotate(5deg)"}
             ),
             rx.image(
-                src="/black-pawn.png",
-                width="64px",
-                height="64px",
+                src="/black-pawn.webp",
+                width="48px",
+                height="48px",
                 border=rx.cond(
                     State.selected_color == "black",
                     "3px solid #F24100",
@@ -76,16 +78,16 @@ def send_pgn_form():
                 _hover={"transform": "scale(1.1) rotate(-5deg)"},
                 _active={"transform": "scale(0.95) rotate(5deg)"}
             ),
-            spacing="4",
-            margin_top="2em",
-            margin_bottom="1em",
+            spacing="3",
+            margin_top="1em",
+            margin_bottom="0.7em",
             justify_content="center"
         ),
         rx.center(
             rx.cond(
                 State.selected_color == "white",
-                rx.badge("Blancas seleccionadas", color_scheme="orange"),
-                rx.badge("Negras seleccionadas", color_scheme="orange")
+                rx.badge("Blancas seleccionadas", color_scheme="orange", font_size="0.8em"),
+                rx.badge("Negras seleccionadas", color_scheme="orange", font_size="0.8em")
             ),
             width="100%"
         ),
@@ -93,25 +95,26 @@ def send_pgn_form():
             "Obtener Recomendación",
             on_click=State.get_recommendation,
             color=WHITE,
-            margin_top="1em",
+            margin_top="0.7em",
             is_loading=State.is_loading,
             _hover={"bg": ORANGE_HOVER},
             font_family=FONT_FAMILY,
             align_self="center",
-            padding="1em",
+            padding="0.7em",
             bg=ORANGE,
             border_radius="8px",
             box_shadow="0 4px 8px rgba(0, 0, 0, 0.2)",
-            min_width="400px",
-            max_width="400px",
-            flex_shrink=0
+            min_width="320px",
+            max_width="320px",
+            flex_shrink=0,
+            font_size="0.85em",
         ),
         rx.cond(
             State.error,
-            rx.text(State.error, color="red", font_weight="bold", margin_top="1em", font_size="0.9em"),
+            rx.text(State.error, color="red", font_weight="bold", margin_top="0.7em", font_size="0.8em"),
         ),
-        spacing="4",
+        spacing="3",
         align="center",
         width="100%",
-        max_width="800px"
+        max_width="700px"
     )

@@ -5,9 +5,9 @@ from open_reper.FrontEnd.constants import BLUE_DARK, BLUE_HOVER
 def moves_table_static():
     return rx.box(
                 rx.heading("Secuencia de Movimientos",
-                        font_size="1.5em",
+                        font_size="1.1em",
                         color="white",
-                        margin_bottom="1em"),
+                        margin_bottom="0.7em"),
                 rx.table.root(
                     rx.table.header(
                         rx.table.row(
@@ -41,14 +41,15 @@ def moves_table_static():
                         )
                     ),
                     bg=BLUE_HOVER,
-                    padding="1em",
+                    padding="0.7em",
                     border_radius="8px",
                     width="100%",
-                    height="650px",
-                    overflow_y="auto"
+                    height="480px",
+                    overflow_y="auto",
+                    font_size="0.85em"
                 ),
-                padding="1em",
+                padding="0.7em",
                 bg=BLUE_DARK,
-                margin_right="1em",
-                min_width="350px"
+                margin_right="0.7em",
+                min_width="280px"
             )

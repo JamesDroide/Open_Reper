@@ -26,14 +26,14 @@ def chess_square(square: str):
     piece_component = rx.match(
         piece_symbol,
         *[(symbol, component) for symbol, component in PIECE_MAP.items()],
-        rx.box(width="50px", height="50px")
+        rx.box(width="38px", height="38px")
     )
 
     return rx.box(
         piece_component,
         on_click=lambda: State.select_square(square),
-        width="60px",
-        height="60px",
+        width="45px",
+        height="45px",
         display="flex",
         justify_content="center",
         align_items="center",
