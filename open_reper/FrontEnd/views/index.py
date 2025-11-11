@@ -10,7 +10,7 @@ def index_view():
             rx.flex(
                 rx.link(
                     rx.image(
-                        src="logo_open_reper.png",
+                        src="logo_open_reper.webp",
                         width="140px",
                         height="auto",
                     ),
@@ -66,7 +66,7 @@ def index_view():
                     ),
 
                     rx.image(
-                        src="pieces.png",
+                        src="pieces.webp",
                         width="45%",
                         max_width="550px",
                         max_height="500px",

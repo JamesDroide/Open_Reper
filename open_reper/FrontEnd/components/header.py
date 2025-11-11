@@ -5,7 +5,7 @@ def header(header: str, subheader: str):
     return rx.flex(
             rx.link(
                 rx.image(
-                    src="/logo_open_reper.png",
+                    src="/logo_open_reper.webp",
                     width="130px",
                     height="auto",
                 ),

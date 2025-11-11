@@ -2,7 +2,7 @@ import reflex as rx
 
 class AppConfig(rx.Config):
     app_name: str = "open_reper"
-    logo: str = "assets/logo_open_reper.png"
+    logo: str = "assets/logo_open_reper.webp"
     breakpoints: dict = {
         "mobile": "480px",
         "tablet": "768px",

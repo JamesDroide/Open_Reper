@@ -47,7 +47,7 @@ def send_pgn_form():
         rx.heading("Selecciona tu color:", font_size="1em", color="white", margin_top="0.7em"),
         rx.hstack(
             rx.image(
-                src="/white-pawn.png",
+                src="/white-pawn.webp",
                 width="48px",
                 height="48px",
                 border=rx.cond(
@@ -63,7 +63,7 @@ def send_pgn_form():
                 _active={"transform": "scale(0.95) rotate(5deg)"}
             ),
             rx.image(
-                src="/black-pawn.png",
+                src="/black-pawn.webp",
                 width="48px",
                 height="48px",
                 border=rx.cond(
