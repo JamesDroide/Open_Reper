@@ -23,5 +23,6 @@ def header(header: str, subheader: str):
             align_items="center",
             width="100%",
             padding="0.7em",
+            gap="0.5em",
             bg=BLUE_DARK
         ),
