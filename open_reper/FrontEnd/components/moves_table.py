@@ -50,7 +50,13 @@ def moves_table():
         # Controles de navegación responsivos
         rx.hstack(
             rx.button(
-                "⏮️",
+                rx.image(
+                    src="/preview-arrow.svg",
+                    width=["24px", "26px", "28px", "30px"],
+                    height=["24px", "26px", "28px", "30px"],
+                    alt="Reiniciar",
+                    filter="brightness(0) invert(1)"
+                ),
                 on_click=State.reset_game_second_board,
                 bg=BLUE_DARK,
                 color=WHITE,
@@ -59,15 +65,23 @@ def moves_table():
                     "transform": "scale(1.1)"
                 },
                 title="Reiniciar reproducción",
-                font_size=["1.1em", "1.2em", "1.3em", "1.4em"],  # Responsivo
                 margin_right=SPACING_SM,
-                padding=["0.4em 6px", "0.45em 7px", "0.5em 8px", "0.5em 8px"],
+                padding=["0.5em", "0.55em", "0.6em", "0.65em"],
                 border_radius=RADIUS_MD,
                 cursor="pointer",
-                transition=f"all {TRANSITION_FAST[1]} {EASE_IN_OUT}"
+                transition=f"all {TRANSITION_FAST[1]} {EASE_IN_OUT}",
+                display="flex",
+                align_items="center",
+                justify_content="center"
             ),
             rx.button(
-                "◀️",
+                rx.image(
+                    src="/left-arrow.svg",
+                    width=["24px", "26px", "28px", "30px"],
+                    height=["24px", "26px", "28px", "30px"],
+                    alt="Anterior",
+                    filter="brightness(0) invert(1)"
+                ),
                 on_click=State.prev_move_second_board,
                 bg=BLUE_DARK,
                 color=WHITE,
@@ -77,16 +91,24 @@ def moves_table():
                 },
                 is_disabled=State.interactive_current_move <= 0,
                 title="Movimiento anterior",
-                font_size=["1.1em", "1.2em", "1.3em", "1.4em"],
                 margin_right=SPACING_SM,
-                padding=["0.4em 6px", "0.45em 7px", "0.5em 8px", "0.5em 8px"],
+                padding=["0.5em", "0.55em", "0.6em", "0.65em"],
                 border_radius=RADIUS_MD,
                 cursor="pointer",
                 opacity=rx.cond(State.interactive_current_move <= 0, "0.5", "1"),
-                transition=f"all {TRANSITION_FAST[1]} {EASE_IN_OUT}"
+                transition=f"all {TRANSITION_FAST[1]} {EASE_IN_OUT}",
+                display="flex",
+                align_items="center",
+                justify_content="center"
             ),
             rx.button(
-                "▶️",
+                rx.image(
+                    src="/right-arrow.svg",
+                    width=["24px", "26px", "28px", "30px"],
+                    height=["24px", "26px", "28px", "30px"],
+                    alt="Siguiente",
+                    filter="brightness(0) invert(1)"
+                ),
                 on_click=State.next_move_second_board,
                 bg=BLUE_DARK,
                 color=WHITE,
@@ -96,9 +118,8 @@ def moves_table():
                 },
                 is_disabled=State.interactive_current_move >= State.format_move_list.length()-1,
                 title="Siguiente movimiento",
-                font_size=["1.1em", "1.2em", "1.3em", "1.4em"],
                 margin_right=SPACING_SM,
-                padding=["0.4em 6px", "0.45em 7px", "0.5em 8px", "0.5em 8px"],
+                padding=["0.5em", "0.55em", "0.6em", "0.65em"],
                 border_radius=RADIUS_MD,
                 cursor="pointer",
                 opacity=rx.cond(
@@ -106,10 +127,19 @@ def moves_table():
                     "0.5",
                     "1"
                 ),
-                transition=f"all {TRANSITION_FAST[1]} {EASE_IN_OUT}"
+                transition=f"all {TRANSITION_FAST[1]} {EASE_IN_OUT}",
+                display="flex",
+                align_items="center",
+                justify_content="center"
             ),
             rx.button(
-                "⏩",
+                rx.image(
+                    src="/next-arrow.svg",
+                    width=["24px", "26px", "28px", "30px"],
+                    height=["24px", "26px", "28px", "30px"],
+                    alt="Ir al final",
+                    filter="brightness(0) invert(1)"
+                ),
                 on_click=State.go_to_last_move,
                 bg=BLUE_DARK,
                 color=WHITE,
@@ -119,8 +149,7 @@ def moves_table():
                 },
                 is_disabled=State.interactive_current_move >= State.format_move_list.length() - 1,
                 title="Ir al final",
-                font_size=["1.1em", "1.2em", "1.3em", "1.4em"],
-                padding=["0.4em 6px", "0.45em 7px", "0.5em 8px", "0.5em 8px"],
+                padding=["0.5em", "0.55em", "0.6em", "0.65em"],
                 border_radius=RADIUS_MD,
                 cursor="pointer",
                 opacity=rx.cond(
@@ -128,12 +157,15 @@ def moves_table():
                     "0.5",
                     "1"
                 ),
-                transition=f"all {TRANSITION_FAST[1]} {EASE_IN_OUT}"
+                transition=f"all {TRANSITION_FAST[1]} {EASE_IN_OUT}",
+                display="flex",
+                align_items="center",
+                justify_content="center"
             ),
             spacing="2",
             margin_top=SPACING_SM,
             justify_content="center",
-            flex_wrap="wrap"  # Permite ajuste en pantallas pequeñas
+            flex_wrap="wrap"
         ),
         align_items="center",
         width="100%",

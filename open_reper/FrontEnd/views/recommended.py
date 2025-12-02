@@ -73,7 +73,11 @@ def _board_and_moves_section():
 
 
 def _recommendations_grid():
-    """Grid de otras recomendaciones"""
+    """
+    Grid de otras recomendaciones
+    Móvil: columna vertical (1 card por fila)
+    Desktop: grid de 2 columnas
+    """
     return rx.center(
         rx.vstack(
             rx.heading(
@@ -92,13 +96,16 @@ def _recommendations_grid():
                         opening=opening["name"]
                     )
                 ),
-                display="grid",
-                grid_template_columns=["1fr", "repeat(2, 1fr)", "repeat(2, 1fr)", "repeat(2, 1fr)"],
+                # Móvil: flex column, Desktop: grid 2 columnas
+                display=["flex", "flex", "grid", "grid"],
+                flex_direction=["column", "column", "row", "row"],
+                grid_template_columns=["none", "none", "repeat(2, 1fr)", "repeat(2, 1fr)"],
                 gap=["0.8em", "1em", "1.2em", "1.5em"],
                 justify_content="center",
-                width="100%"
+                width="100%",
+                align_items=["stretch", "stretch", "flex-start", "flex-start"]
             ),
-            spacing="4",  # VStack spacing: valores literales '0'-'9'
+            spacing="4",
             width="100%",
             max_width=MAX_WIDTH_LG,
             padding=["0.8em", "1em", "1.2em", "1.5em"],
